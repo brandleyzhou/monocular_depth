@@ -1,7 +1,8 @@
+# some layers in depth networks 
+
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
