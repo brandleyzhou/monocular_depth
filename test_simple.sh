@@ -1,3 +1,5 @@
+## a shell script to output single depth map ##
+############################################
 #python test_simple.py --image_path assets/0000000768.png --model_folder  ~/best_model_zhh/plan1_sigm_checkpoints_all_v0_new_flipping/no_1 --model_name weights_14
 #python test_simple.py --image_path assets/0000000448.png --model_folder  ~/best_model_zhh/plan1_sigm_checkpoints_all_v0_new_flipping/no_1 --model_name weights_14
 python test_simple.py --image_path assets/0000000018.png --model_folder  ~/best_model_zhh/plan1_sigm_checkpoints_all_v1_flipping/no_1 --model_name weights_17
