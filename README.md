@@ -1,7 +1,5 @@
-This is a repo discribing my project
-
-For building our networks, we use modules in networks/
-##
-For loading training data, we use a class defined in datasets/
-
+# This is a repo discribing our depth estimation method
+## All Hyper-prameters setting in **option.py**.
+## Model networks in *networks/*.
+## Wrok Plan
 start to validate our assumptions on KITTI ground truth
