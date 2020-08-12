@@ -47,6 +47,7 @@ class ResNetMultiImageInput(models.ResNet):
                     } 
         self.inplanes = 64
         self.conv1 = self.plan_choices[self.plan][0]
+        #because the output of self.conv1 is a list having an element, so here we use [0] to extract the element
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -112,6 +113,8 @@ class ResnetEncoder(nn.Module):
         self.features = []
         x = (input_image - 0.45) / 0.225 # normalizetion?
         x = self.encoder.conv1(x)
+        print(x.size())
+        input()
         x = self.encoder.bn1(x)
         self.features.append(self.encoder.relu(x))
         self.features.append(self.encoder.layer1(self.encoder.maxpool(self.features[-1])))
