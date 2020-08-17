@@ -1,3 +1,4 @@
+
 from __future__ import absolute_import, division, print_function
 
 import os
@@ -11,7 +12,7 @@ import matplotlib.cm as cm
 
 import torch
 from torchvision import transforms, datasets
-
+from cv2 import imwrite
 import networks
 from layers import disp_to_depth
 from utils import download_model_if_doesnt_exist
@@ -98,7 +99,7 @@ def test_simple(args):
         output_directory = os.path.dirname(args.image_path)
     elif os.path.isdir(args.image_path):
         # Searching folder for images
-        paths = glob.glob(os.path.join(args.image_path, '*.{}'.format(args.ext)))
+        paths = glob.glob(os.path.join(args.image_path, '*.{}'.format('png')))
         output_directory = args.image_path
     else:
         raise Exception("Can not find args.image_path: {}".format(args.image_path))
@@ -115,12 +116,18 @@ def test_simple(args):
 
             # Load image and preprocess
             input_image = pil.open(image_path).convert('RGB')
+            
+            rgb = transforms.ToTensor()(input_image)
+            
             original_width, original_height = input_image.size
             input_image = input_image.resize((feed_width, feed_height), pil.LANCZOS)
             input_image = transforms.ToTensor()(input_image).unsqueeze(0)
 
             # PREDICTION
             input_image = input_image.to(device)
+            
+            rgb1 = rgb.permute(1,2,0).detach().cpu().numpy() * 255
+            
             features = encoder(input_image)
             outputs = depth_decoder(features)
 
@@ -129,20 +136,30 @@ def test_simple(args):
                 disp, (original_height, original_width), mode="bilinear", align_corners=False)
 
             # Saving numpy file
-            output_name = os.path.splitext(os.path.basename(image_path))[0]
-            name_dest_npy = os.path.join(output_directory, "{}_disp.npy".format(output_name))
-            scaled_disp, _ = disp_to_depth(disp, 0.1, 100)
-            np.save(name_dest_npy, scaled_disp.cpu().numpy())
+            #output_name = os.path.splitext(os.path.basename(image_path))[0]
+            #name_dest_npy = os.path.join(output_directory, "{}_disp.npy".format(output_name))
+            #scaled_disp, _ = disp_to_depth(disp, 0.1, 100)
+            #np.save(name_dest_npy, scaled_disp.cpu().numpy())
 
             # Saving colormapped depth image
             disp_resized_np = disp_resized.squeeze().cpu().numpy()
+            print(disp_resized_np.shape)
             vmax = np.percentile(disp_resized_np, 95)
             normalizer = mpl.colors.Normalize(vmin=disp_resized_np.min(), vmax=vmax)
             mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
             colormapped_im = (mapper.to_rgba(disp_resized_np)[:, :, :3] * 255).astype(np.uint8)
             im = pil.fromarray(colormapped_im)
-            name_dest_im = os.path.join(output_directory, "{}_{}_{}_{}.jpeg".format(args.image_path[-9:-4],args.model_folder[35:40],args.model_folder[41:45],args.model_folder[-27:-19]))
-            im.save(name_dest_im)
+            name_dest_im = os.path.join('error_vis', "{}.jpeg".format(image_path[-14:-4]))
+            
+            # concatenate both vertically
+            image = np.concatenate([rgb1, im], 0)
+            
+            #just save a single depth
+            #image.save(name_dest_im)
+
+            #save a concatenated iamge for depth and rgb
+            imwrite(name_dest_im,image[:,:,::-1])
+            
             print("   Processed {:d} of {:d} images - saved prediction to {}".format(
                 idx + 1, len(paths), name_dest_im))
 
