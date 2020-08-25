@@ -58,7 +58,7 @@ def main(args):
     frames = os.listdir(folder_path)
     for i,frame in tqdm(enumerate(frames)):
         velo_path = os.path.join(folder_path,frame)
-        depth_img = np.asarray(Image.open(velo_path))/ 255
+        depth_img = np.array(Image.open(velo_path))/ 255
         x,y = np.where(depth_img > 0)
         d = depth_img[depth_img != 0]
         xyd = np.stack((y,x,d)).T
