@@ -1,3 +1,6 @@
+'''This is a script for make3d evaluation, original resolution of RGB is 2272 x 1704,
+    gt is 55 x 305. For monocular depth where 192 x 640. we take a ratio 1 : 3 = H : W
+'''
 import cv2
 import numpy as np
 import scipy.io
@@ -58,9 +61,6 @@ def compute_errors(gt, pred):
     return abs_rel, sq_rel, rmse, rmse_log
 
 
-#with open(os.path.join(main_path, 'make3d_test_files.txt')) as f:
-#    test_filenames = f.read().splitlines()
-#test_filenames = map(lambda x : x[4:-4],test_filenames)
 test_filenames = os.listdir(os.path.join(main_path,'Test134'))
 
 depths_gt = []
@@ -68,42 +68,37 @@ images = []
 ratio = 2
 
 h_ratio = 1 / (1.33333 * ratio)
-color_new_height = 1704 // 2
+color_new_height = 192
+color_new_width = 640
 depth_new_height = 21
 for filename in test_filenames:
-    #mat = scipy.io.loadmat(os.path.join(main_path,'Gridlaserdata','depth_sph_corr-{}.mat'.format(filename)))
     mat = scipy.io.loadmat(os.path.join(main_path,'Gridlaserdata','depth_sph_corr-{}.mat'.format(filename[4:-4])))
     depths_gt.append(mat['Position3DGrid'][:,:,3])
-
     image = cv2.imread(os.path.join(main_path,'Test134','{}'.format(filename)))
-    image = image[(2272 - color_new_height)//2:(2272 + color_new_height)//2,:]
+    image = image[(2272 - color_new_height)//2:(2272 + color_new_height)//2,(1704 - color_new_width) // 2:(1704 + color_new_width)//2,:]
     images.append(image[:,:,::-1])
     #cv2.imwrite(os.path.join(main_path,'Test134_cropped','{}'.format(filename)),image)
 depths_gt_resized = map(lambda x:cv2.resize(x,(305,407),interpolation=cv2.INTER_NEAREST),depths_gt)
-depths_gt_cropped = list(map(lambda x:x[(55-21)//2:(55+21)//2],depths_gt))
+depths_gt_cropped = list(map(lambda x:x[(55-21)//2:(55+21)//2, (305-21*3)//2:(305+21*3)//2],depths_gt))
 errors = []
 
 for i in range(len(test_filenames)):
     depth_gt = depths_gt_cropped[i]
-    image = torch.from_numpy(images[i].copy()).to(device)
+    image = torch.from_numpy(images[i].astype(np.float64).copy())
     # predicting depths
     original_width, original_height = depth_gt.shape
-    input_image = image.permute((2,0,1))
-    print(input_image.size())
-    features = encoder(input_image)
-    print('here2')
+    input_image = image.permute((2,0,1)).unsqueeze(0)/255
+    input_image = input_image.to(device)
+    features = encoder(input_image.float())
     outputs = depth_decoder(features)
-    disp = outputs[("disp", 0)]
-    #depth_pred = cv2.resize(depth_pred,depth_gt.shape[::-1],interpolation = cv2.INTER_NEAREST)
-    #disp_resized = torch.nn.functional.interpolate(
-    #    disp, (original_height, original_width), mode="bilinear", align_corners=False)
+    disp = outputs[("disp", 0)].squeeze(0)
     scaled_disp, _ = disp_to_depth(disp, 0.1, 100)
-    print('here')
-    depth_pred = scaled_disp.cpu().numpy()
+    depth_pred = scaled_disp.detach().cpu().numpy()[0]
+    depth_pred = cv2.resize(depth_pred,depth_gt.shape[::-1],interpolation = cv2.INTER_NEAREST)
+    #depth_pred = depth_pred[(192-21)//2:(192+21)//2,(640-63)//2,(640+63)//2]
     mask = np.logical_and(depth_gt > 0,depth_gt < 70)
     depth_gt = depth_gt[mask]
     depth_pred = depth_pred[mask]
-    print(depth_pred.min())
     depth_pred *= np.median(depth_gt) / np.median(depth_pred)
     depth_pred[depth_pred > 70] = 70
     errors.append(compute_errors(depth_gt,depth_pred))
