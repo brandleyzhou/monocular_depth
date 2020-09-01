@@ -1,5 +1,7 @@
 '''This is a script for make3d evaluation, original resolution of RGB is 2272 x 1704,
-    gt is 55 x 305. For monocular depth where 192 x 640. we take a ratio 1 : 3 = H : W
+    gt is 55 x 305. For monocular depth where 192 x 640. we take a ratio 1 : 3 = H : W.
+    Another question is how to align depth_gt and depth_pred. resize() or 
+    manually align(get better results)
 '''
 import cv2
 import numpy as np
@@ -94,8 +96,8 @@ for i in range(len(test_filenames)):
     disp = outputs[("disp", 0)].squeeze(0)
     scaled_disp, _ = disp_to_depth(disp, 0.1, 100)
     depth_pred = scaled_disp.detach().cpu().numpy()[0]
-    depth_pred = cv2.resize(depth_pred,depth_gt.shape[::-1],interpolation = cv2.INTER_NEAREST)
-    #depth_pred = depth_pred[(192-21)//2:(192+21)//2,(640-63)//2,(640+63)//2]
+    #depth_pred = cv2.resize(depth_pred,depth_gt.shape[::-1],interpolation = cv2.INTER_NEAREST)
+    depth_pred = depth_pred[(192-21)//2:(192+21)//2,(640-63)//2:(640+63)//2]
     mask = np.logical_and(depth_gt > 0,depth_gt < 70)
     depth_gt = depth_gt[mask]
     depth_pred = depth_pred[mask]
