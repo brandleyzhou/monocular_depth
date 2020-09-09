@@ -1,5 +1,5 @@
 from __future__ import absolute_import, division, print_function
-from torchsummary import summary
+#from torchsummary import summary
 from tqdm import tqdm
 import numpy as np
 import time
@@ -36,38 +36,38 @@ def get_value_range(img):
     max_min.append(vmax)
     return max_min
 
-def save_error_visualization(ssmi,target,pred,L1):
-    L1 = L1[0,:,:].squeeze(0).squeeze(0).cpu()
-    target = target[0,:,:,:].squeeze(0).cpu()
-    pred = pred[0,:,:,:].squeeze(0).cpu()
-    error = ssmi[0,:,:].squeeze(0).squeeze(0).cpu()
-    ## save pred and target
-    #pred = (pred.permute(1,2,0) * 255).numpy()
-    #pred = pil.fromarray(pred)
-    #target = (target.permute(1,2,0) * 255).numpy()
-    #target = pil.fromarray(target)
-    ## ssmi visualization
-    max_min_diff = get_value_range(error)
-    normalizer_diff = mpl.colors.Normalize(vmin = max_min_diff[0], vmax = max_min_diff[1])
-    mapper = cm.ScalarMappable(norm=normalizer_diff, cmap='magma')
-    error = (mapper.to_rgba(error)[:, :,:3] * 255).astype(np.uint8)
-    error = pil.fromarray(error)
-    ## l1 visualization
-    max_min_diff = get_value_range(L1)
-    normalizer_diff = mpl.colors.Normalize(vmin = max_min_diff[0], vmax = max_min_diff[1])
-    mapper = cm.ScalarMappable(norm=normalizer_diff, cmap='magma')
-    L1 = (mapper.to_rgba(L1)[:, :,:3] * 255).astype(np.uint8)
-    L1 = pil.fromarray(L1)
-    ## create paths
-    error_path = os.path.join('.','error_vis','{}_error.jpeg'.format(time.ctime(time.time())))
-    L1_path = os.path.join('.','error_vis','{}_L1.jpeg'.format(time.ctime(time.time())))
-    target_path = os.path.join('.','error_vis','{}_target.jpeg'.format(time.ctime(time.time())))
-    pred_path = os.path.join('.','error_vis','{}_pred.jpeg'.format(time.ctime(time.time())))
-    ## save images
-    error.save(error_path)
-    L1.save(L1_path)
-    save_image(target,target_path)
-    save_image(pred,pred_path)
+#def save_error_visualization(ssmi,target,pred,L1):
+#    L1 = L1[0,:,:].squeeze(0).squeeze(0).cpu()
+#    target = target[0,:,:,:].squeeze(0).cpu()
+#    pred = pred[0,:,:,:].squeeze(0).cpu()
+#    error = ssmi[0,:,:].squeeze(0).squeeze(0).cpu()
+#    ## save pred and target
+#    #pred = (pred.permute(1,2,0) * 255).numpy()
+#    #pred = pil.fromarray(pred)
+#    #target = (target.permute(1,2,0) * 255).numpy()
+#    #target = pil.fromarray(target)
+#    ## ssmi visualization
+#    max_min_diff = get_value_range(error)
+#    normalizer_diff = mpl.colors.Normalize(vmin = max_min_diff[0], vmax = max_min_diff[1])
+#    mapper = cm.ScalarMappable(norm=normalizer_diff, cmap='magma')
+#    error = (mapper.to_rgba(error)[:, :,:3] * 255).astype(np.uint8)
+#    error = pil.fromarray(error)
+#    ## l1 visualization
+#    max_min_diff = get_value_range(L1)
+#    normalizer_diff = mpl.colors.Normalize(vmin = max_min_diff[0], vmax = max_min_diff[1])
+#    mapper = cm.ScalarMappable(norm=normalizer_diff, cmap='magma')
+#    L1 = (mapper.to_rgba(L1)[:, :,:3] * 255).astype(np.uint8)
+#    L1 = pil.fromarray(L1)
+#    ## create paths
+#    error_path = os.path.join('.','error_vis','{}_error.jpeg'.format(time.ctime(time.time())))
+#    L1_path = os.path.join('.','error_vis','{}_L1.jpeg'.format(time.ctime(time.time())))
+#    target_path = os.path.join('.','error_vis','{}_target.jpeg'.format(time.ctime(time.time())))
+#    pred_path = os.path.join('.','error_vis','{}_pred.jpeg'.format(time.ctime(time.time())))
+#    ## save images
+#    error.save(error_path)
+#    L1.save(L1_path)
+#    save_image(target,target_path)
+#    save_image(pred,pred_path)
 
 def generate_depth_mask(img1,img2,threshold):
     img1_avg = torch.mean(img1,1,True)
@@ -96,8 +96,8 @@ class Trainer:
         self.models = {}
         self.parameters_to_train = []
 
-        self.device = torch.device("cuda:1" if self.opt.ada else "cuda:0")#not using cuda?
-        #self.device = torch.device("cpu" if self.opt.no_cuda else "cuda")#not using cuda?
+        #self.device = torch.device("cuda:1" if self.opt.ada else "cuda:0")#not using cuda?
+        self.device = torch.device("cpu" if self.opt.no_cuda else "cuda:0")#not using cuda?
         self.num_scales = len(self.opt.scales)#scales = [0,1,2,3]'scales used in the loss'
         self.num_input_frames = len(self.opt.frame_ids)#frames = [0,-1,1]'frame to load'
         self.num_pose_frames = 2 if self.opt.pose_model_input == "pairs" else self.num_input_frames
@@ -121,7 +121,7 @@ class Trainer:
         #self.models["depth"] = DDP(self.models["depth"])
         self.models["encoder"] = DDP(self.models["encoder"])
         self.models["encoder"].to(self.device)
-        summary(self.models["depth"])
+        #summary(self.models["depth"])
         self.models["depth"].to(self.device)
         self.parameters_to_train += list(self.models["depth"].parameters())
 
@@ -392,7 +392,7 @@ class Trainer:
             outputs.update(self.predict_poses(inputs, features))
 
         self.generate_images_pred(inputs, outputs)
-        losses = self.compute_losses(inputs, outputs,save_error = save_error)
+        losses = self.compute_losses(inputs, outputs, save_error = save_error)
 
         return outputs, losses
 
@@ -475,7 +475,7 @@ class Trainer:
 
         with torch.no_grad():
             if i == 0:
-                outputs, losses = self.process_batch(inputs,save_error = True)
+                outputs, losses = self.process_batch(inputs,save_error = False)
                 i += 1
             else:
                 outputs, losses = self.process_batch(inputs,save_error = False)

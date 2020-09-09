@@ -1,5 +1,5 @@
 from __future__ import absolute_import, division, print_function
-
+from .distortion import distorting_img
 import os
 import skimage.transform
 import numpy as np
@@ -7,7 +7,7 @@ import PIL.Image as pil
 import torchvision.transforms.functional as functional
 from kitti_utils import generate_depth_map
 from .mono_dataset import MonoDataset
-
+from random import random
 
 class KITTIDataset(MonoDataset):
     """Superclass for different types of KITTI dataset loaders
@@ -35,20 +35,19 @@ class KITTIDataset(MonoDataset):
 
         return os.path.isfile(velo_filename)
 
-    #def get_color(self, folder, frame_index, side, do_flip):
-    #    color = self.loader(self.get_image_path(folder, frame_index, side))
-
-    #    if do_flip:
-    #        color = color.transpose(pil.FLIP_LEFT_RIGHT)
-      
     def get_color(self, folder, frame_index, side,do_data_augment, data_augment):
+
         color = self.loader(self.get_image_path(folder, frame_index, side))
         if do_data_augment:
-           if data_augment == 'flipping':
-               color = color.transpose(pil.FLIP_LEFT_RIGHT)
-           elif data_augment == 'rotation':
-               color = functional.rotate(color,180)
+            if data_augment == 'flipping':
+                color = color.transpose(pil.FLIP_LEFT_RIGHT)
+            elif data_augment == 'rotation':
+                color = functional.rotate(color,180)
+        if random() <= 0.5:
+            color = distorting_img(color)
+            print('good')
         return color
+
 
 class KITTIRAWDataset(KITTIDataset):
     """KITTI dataset which loads the original velodyne depth maps for ground truth

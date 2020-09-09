@@ -192,7 +192,7 @@ class MonodepthOptions:
                                  choices=["posecnn", "separate_resnet", "shared"])
 
         # SYSTEM options
-        self.parser.add_argument("--ada",
+        self.parser.add_argument("--no_cuda",
                                  help="if set disables CUDA",
                                  action="store_true")
         self.parser.add_argument("--num_workers",
