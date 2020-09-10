@@ -12,11 +12,11 @@ from torch.nn import DataParallel as DDP
 from torchvision.utils import save_image
 #from toch.nn.parallel import DistributedDataParallel as DDP
 try:
-    #from torch.utils.tensorboard import SummaryWriter
-    from tensorboardX import SummaryWriter
-except:
-    #from tensorboardX import SummaryWriter
     from torch.utils.tensorboard import SummaryWriter
+    #from tensorboardX import SummaryWriter
+except:
+    from tensorboardX import SummaryWriter
+    #from torch.utils.tensorboard import SummaryWriter
 import json
 
 import PIL.Image as pil
@@ -97,7 +97,7 @@ class Trainer:
         self.parameters_to_train = []
 
         #self.device = torch.device("cuda:1" if self.opt.ada else "cuda:0")#not using cuda?
-        self.device = torch.device("cpu" if self.opt.no_cuda else "cuda:0")#not using cuda?
+        self.device = torch.device("cpu" if self.opt.no_cuda else "cuda")#not using cuda?
         self.num_scales = len(self.opt.scales)#scales = [0,1,2,3]'scales used in the loss'
         self.num_input_frames = len(self.opt.frame_ids)#frames = [0,-1,1]'frame to load'
         self.num_pose_frames = 2 if self.opt.pose_model_input == "pairs" else self.num_input_frames
@@ -622,7 +622,7 @@ class Trainer:
                 # add random numbers to break ties
                     #identity_reprojection_loss.shape).cuda() * 0.00001
                 if torch.cuda.is_available():
-                    identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda(1) * 0.00001 if self.opt.ada else torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
+                    identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cuda(1) * 0.00001 if self.opt.no_cuda else torch.randn(identity_reprojection_loss.shape).cuda() * 0.00001
                 else:
                     identity_reprojection_loss += torch.randn(identity_reprojection_loss.shape).cpu() * 0.00001
                 combined = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)

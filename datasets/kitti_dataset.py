@@ -45,7 +45,6 @@ class KITTIDataset(MonoDataset):
                 color = functional.rotate(color,180)
         if random() <= 0.5:
             color = distorting_img(color)
-            print('good')
         return color
 
 
