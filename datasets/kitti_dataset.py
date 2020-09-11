@@ -43,8 +43,8 @@ class KITTIDataset(MonoDataset):
                 color = color.transpose(pil.FLIP_LEFT_RIGHT)
             elif data_augment == 'rotation':
                 color = functional.rotate(color,180)
-        if random() <= 0.5:
-            color = distorting_img(color)
+        #if random() <= 0.5:
+        #    color = distorting_img(color)
         return color
 
 
