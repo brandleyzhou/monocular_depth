@@ -1,4 +1,5 @@
 # This is a repo discribing our depth estimation method
+ based on [monodepth2]([https://github.com/nianticlabs/monodepth2)
 # Results
 
 | Methods    | abs rel | sq rel | RMSE  | RMSE log | D1 |
@@ -9,13 +10,14 @@
 | Fisheyedepthnet (ICRA2020) | 0.117 | 0.867 | 4.739 | 0.190 | 0.869 |
 | **Ours** | 0.112 | 0.816 | 4.715 | 0.190 | 0.880 |
 
+# Demo
 ![](demo1.gif)
-# whentesting on non-rigid objects
+## whentesting on non-rigid objects
 ![](pedestrians.gif)
 ## API
 1. Train models
 
-```shell
+```
 sh start2train.sh
 ```
 
