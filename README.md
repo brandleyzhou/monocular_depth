@@ -1,5 +1,5 @@
 # This is a repo discribing our depth estimation method
- based on [monodepth2]([https://github.com/nianticlabs/monodepth2)
+ Most code based on [monodepth2](https://github.com/nianticlabs/monodepth2)
 # Results
 
 | Methods    | abs rel | sq rel | RMSE  | RMSE log | D1 |
