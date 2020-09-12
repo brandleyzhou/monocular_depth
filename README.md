@@ -1,6 +1,7 @@
 # This is a repo discribing our depth estimation method
  Most code based on [monodepth2](https://github.com/nianticlabs/monodepth2)
-# Comparision Results
+# Comparision Results 
+*(all models trained in a self-supervised manner and test on a same metrics and testset)*
 
 | Methods    | abs rel | sq rel | RMSE  | RMSE log | D1 |
 | :----------- | :-----: | :----: | :---: | :------: | :--------: |
