@@ -1,5 +1,5 @@
 from __future__ import absolute_import, division, print_function
-from .distortion import distorting_img
+#from .distortion import distorting_img
 import os
 import skimage.transform
 import numpy as np
