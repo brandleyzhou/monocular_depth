@@ -15,13 +15,13 @@
 ## API
 1. Train models
 
-'''shell
+```shell
 sh start2train.sh
-'''
+```
 
 2. Evaluating depth
-'''
+```
 sh disp_evaluation.sh
-'''
+```
 
 
