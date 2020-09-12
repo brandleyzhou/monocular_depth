@@ -26,4 +26,19 @@ sh start2train.sh
 sh disp_evaluation.sh
 ```
 
+3. Testing a sample
+
+'''
+sh test_sample.sh
+'''
+3. Testing a sample
+
+'''
+sh test_sample.sh
+'''
+3. Testing a sample
+
+'''
+sh test_sample.sh
+'''
 
