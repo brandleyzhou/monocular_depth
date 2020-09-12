@@ -14,9 +14,11 @@
 ![](pedestrians.gif)
 ## API
 1. Train models
-'''
+
+'''shell
 sh start2train.sh
 '''
+
 2. Evaluating depth
 '''
 sh disp_evaluation.sh
