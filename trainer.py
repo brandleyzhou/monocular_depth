@@ -8,8 +8,8 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from torch.nn import DataParallel as DDP
-from torchvision.utils import save_image
+#from torch.nn import DataParallel as DDP
+#from torchvision.utils import save_image
 #from toch.nn.parallel import DistributedDataParallel as DDP
 try:
     from torch.utils.tensorboard import SummaryWriter
@@ -119,7 +119,7 @@ class Trainer:
         self.models["depth"] = networks.DepthDecoder(
             self.models["encoder"].num_ch_enc, self.opt.scales,nonlin=self.opt.acti_func,using_v=self.opt.using_v)
         #self.models["depth"] = DDP(self.models["depth"])
-        self.models["encoder"] = DDP(self.models["encoder"])
+        #self.models["encoder"] = DDP(self.models["encoder"])
         self.models["encoder"].to(self.device)
         #summary(self.models["depth"])
         self.models["depth"].to(self.device)
@@ -148,7 +148,7 @@ class Trainer:
                 self.models["pose"] = networks.PoseCNN(
                     self.num_input_frames if self.opt.pose_model_input == "all" else 2)
 
-            self.models["pose_encoder"] = DDP(self.models["pose_encoder"])
+            #self.models["pose_encoder"] = DDP(self.models["pose_encoder"])
             self.models["pose_encoder"].to(self.device)
             self.models["pose"].to(self.device)
             self.parameters_to_train += list(self.models["pose"].parameters())
