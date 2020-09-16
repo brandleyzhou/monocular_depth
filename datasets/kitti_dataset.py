@@ -35,7 +35,7 @@ class KITTIDataset(MonoDataset):
 
         return os.path.isfile(velo_filename)
 
-    def get_color(self, folder, frame_index, side,do_data_augment, data_augment):
+    def get_color(self, folder, frame_index, side,do_data_augment, data_augment,apply_distortion):
 
         color = self.loader(self.get_image_path(folder, frame_index, side))
         if do_data_augment:
@@ -43,7 +43,7 @@ class KITTIDataset(MonoDataset):
                 color = color.transpose(pil.FLIP_LEFT_RIGHT)
             elif data_augment == 'rotation':
                 color = functional.rotate(color,180)
-        if random() <= 0.5:
+        if apply_distortion:
             color = distorting_img(color)
         return color
 

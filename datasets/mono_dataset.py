@@ -42,7 +42,8 @@ class MonoDataset(data.Dataset):
                  num_scales,
                  is_train=False,
                  img_ext='.jpg',
-                 data_augment='flipping'):#defualt = 'jpg'
+                 data_augment='flipping',
+                 apply_distortion=False):#defualt = 'jpg'
         super(MonoDataset, self).__init__()
 
         self.data_path = data_path
@@ -57,6 +58,7 @@ class MonoDataset(data.Dataset):
         self.is_train = is_train
         self.img_ext = img_ext
         self.data_augment = data_augment
+        self.apply_distortion = apply_distortion
         self.loader = pil_loader
         self.to_tensor = transforms.ToTensor()
 
@@ -137,6 +139,7 @@ class MonoDataset(data.Dataset):
         do_color_aug = self.is_train and random.random() > 0.5
         do_flip = self.is_train and random.random() > 0.5
         do_data_augment = self.is_train and random.random() > 0.5
+        apply_distortion = self.is_train and self.apply_distortion and random.random() > 0.25
 
         line = self.filenames[index].split()# for instance, self.filename[index] = '2011_09_26/2011_09_26_0022_sync 473 r'
         folder = line[0] # in this example ,line[0] = 2011_09_26/2011_09_26_0022_sync
@@ -155,10 +158,8 @@ class MonoDataset(data.Dataset):
             if i == "s":
                 other_side = {"r": "l", "l": "r"}[side]
                 inputs[("color", i, -1)] = self.get_color(folder, frame_index, other_side, do_flip)
-                #inputs[("color", i, -1)] = self.get_color(folder, frame_index, other_side,do_data_augment,self.data_augment)
             else: # get the path of color images ,inputs[("color",i,-1)] meaning image at native size from disk
-                #inputs[("color", i, -1)] = self.get_color(folder, frame_index + i, side, do_flip)
-                inputs[("color", i, -1)] = self.get_color(folder, frame_index + i, side,do_data_augment, self.data_augment)
+                inputs[("color", i, -1)] = self.get_color(folder, frame_index + i, side, do_data_augment, self.data_augment, self.apply_distortion)
 
 
         # adjusting intrinsics to match each scale in the pyramid
@@ -200,7 +201,7 @@ class MonoDataset(data.Dataset):
 
         return inputs
 
-    def get_color(self, folder, frame_index, side, do_data_augment,data_augment):
+    def get_color(self, folder, frame_index, side, do_data_augment,data_augment,apply_distortion):
         raise NotImplementedError
 
     #def get_color(self, folder, frame_index, side, do_flip):

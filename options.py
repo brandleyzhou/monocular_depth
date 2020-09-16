@@ -35,6 +35,11 @@ class MonodepthOptions:
                                  default = 0.04,
                                  help = 'threshold of photomatrix difference',
                                 )
+        self.parser.add_argument("--apply_distortion",
+                                 type = bool,
+                                 default = False,
+                                 help = 'whether distorting images or not'
+                                )
         self.parser.add_argument("--combined_loss",
                                  type = bool,
                                  default = False,

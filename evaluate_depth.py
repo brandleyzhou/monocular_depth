@@ -123,7 +123,7 @@ def evaluate(opt):
         model_dict = encoder.state_dict()
         encoder.load_state_dict({k: v for k, v in encoder_dict.items() if k in model_dict})
         #encoder.load_state_dict({k: v for k, v in encoder_dict.items() if k in model_dict}, strict = False)
-        depth_decoder.load_state_dict(torch.load(decoder_path),strict = False) if torch.cuda.is_available() else depth_decoder.load_state_dict(torch.load(decoder_path,map_location = 'cpu'))
+        depth_decoder.load_state_dict(torch.load(decoder_path)) if torch.cuda.is_available() else depth_decoder.load_state_dict(torch.load(decoder_path,map_location = 'cpu'))
         #depth_decoder.load_state_dict(torch.load(decoder_path),strict = False) if torch.cuda.is_available() else depth_decoder.load_state_dict(torch.load(decoder_path,map_location = 'cpu'),strict=False)
 
         encoder.cuda() if torch.cuda.is_available() else encoder.cpu()
