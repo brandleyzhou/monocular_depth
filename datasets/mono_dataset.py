@@ -139,7 +139,7 @@ class MonoDataset(data.Dataset):
         do_color_aug = self.is_train and random.random() > 0.5
         do_flip = self.is_train and random.random() > 0.5
         do_data_augment = self.is_train and random.random() > 0.5
-        apply_distortion = self.is_train and self.apply_distortion and random.random() > 0.25
+        apply_distortion = self.is_train and self.apply_distortion and random.random() < 0.5
 
         line = self.filenames[index].split()# for instance, self.filename[index] = '2011_09_26/2011_09_26_0022_sync 473 r'
         folder = line[0] # in this example ,line[0] = 2011_09_26/2011_09_26_0022_sync

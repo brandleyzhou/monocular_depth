@@ -118,8 +118,7 @@ class Trainer:
         self.parameters_to_train += list(self.models["encoder"].parameters())
         self.models["depth"] = networks.DepthDecoder(
             self.models["encoder"].num_ch_enc, self.opt.scales,nonlin=self.opt.acti_func,using_v=self.opt.using_v)
-        #self.models["depth"] = DDP(self.models["depth"])
-        #self.models["encoder"] = DDP(self.models["encoder"])
+        print(self.device)
         self.models["encoder"].to(self.device)
         #summary(self.models["depth"])
         self.models["depth"].to(self.device)
@@ -220,7 +219,7 @@ class Trainer:
                 
         train_dataset = self.dataset(
             self.opt.data_path, train_filenames, self.opt.height, self.opt.width,
-            self.opt.frame_ids, 4, is_train=True, img_ext=img_ext,data_augment=self.opt.data_augment)
+            self.opt.frame_ids, 4, is_train=True, img_ext=img_ext,data_augment=self.opt.data_augment,apply_distortion = self.opt.apply_distortion)
         
         
         self.train_loader = DataLoader(
