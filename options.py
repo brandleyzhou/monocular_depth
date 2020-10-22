@@ -23,7 +23,7 @@ class MonodepthOptions:
         self.parser.add_argument("--extractor_pretrained_path",
                                 type=str,
                                 help='path of pretrained feature extractor',
-                                default = 'models/autoencoder_18.pth'
+                                default = 'models/autoencoder_19.pth'
                                 )
         self.parser.add_argument("--perception_weight",
                                 type=float,

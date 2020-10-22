@@ -723,7 +723,8 @@ class Trainer:
             losses["loss/{}".format(scale)] = loss
 
         total_loss /= self.num_scales
-        total_loss = (1 - self.opt.perception_weight) * total_loss + self.opt.perception_weight * losses['perceptional_loss']
+        #total_loss = (1 - self.opt.perception_weight) * total_loss + self.opt.perception_weight * losses['perceptional_loss']
+        total_loss = total_loss + self.opt.perception_weight * losses['perceptional_loss']
         
         #using new architecture
         if self.opt.add_neighboring_frames == 1:
