@@ -20,6 +20,17 @@ class MonodepthOptions:
                                  help="log directory",
                                  default = "test_monodepth")
         
+        self.parser.add_argument("--extractor_pretrained_path",
+                                type=str,
+                                help='path of pretrained feature extractor',
+                                default = 'models/autoencoder_18.pth'
+                                )
+        self.parser.add_argument("--perception_weight",
+                                type=float,
+                                help='path of pretrained feature extractor',
+                                default = 0.5
+                                )
+        
         # TRAINING options
         self.parser.add_argument("--data_augment",
                                  type = str,

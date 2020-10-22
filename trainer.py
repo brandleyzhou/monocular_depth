@@ -27,7 +27,28 @@ from kitti_utils import *
 from layers import *
 import datasets
 import networks
+from networks.layers import SSIM,Backproject,Project
 from IPython import embed
+
+##feature extractor building
+def build_extractor(num_layers,pretrained_path):
+    '''maybe using resnet-18 can get better results'''
+    extractor = networks.mono_autoencoder.encoder.Encoder(18, None)
+    checkpoint = torch.load(pretrained_path, map_location = 'cpu')
+    for name, param in extractor.state_dict().items():
+        extractor.load_state_dict(torch.load(pretrained_path))
+    for param in extractor.parameters():
+        param.requires_grad = False
+    return extractor
+
+#def build_extractor(num_layers,pretrained_path):
+#    extractor = networks.mono_autoencoder.encoder.Encoder(50,pretrained_path)
+#    checkpoint = torch.load(pretrained_path, map_location = 'cpu')
+#    for name, param in extractor.state_dict().items():
+#        extractor.state_dict()[name].copy_(checkpoint['state_dict']['Encoder.'+name])
+#    for param in extractor.parameters():
+#        param.requires_grad = False
+#    return extractor
 
 def get_value_range(img):
     max_min = []
@@ -109,7 +130,11 @@ class Trainer:
 
         if self.opt.use_stereo:
             self.opt.frame_ids.append("s")
-
+        
+        ## add feature extractor module:
+        self.models["extractor"] = build_extractor(
+                self.opt.num_layers, self.opt.extractor_pretrained_path).to(self.device)
+        
         self.models["encoder"] = networks.ResnetEncoder(
             self.opt.num_layers, self.opt.weights_init == "pretrained",plan = self.opt.plan)
         #defualt = 18 choice=[18,34,50,101,152]
@@ -391,6 +416,8 @@ class Trainer:
             outputs.update(self.predict_poses(inputs, features))
 
         self.generate_images_pred(inputs, outputs)
+        ## add feature loss
+        self.generate_feature_pred(inputs, outputs)
         losses = self.compute_losses(inputs, outputs, save_error = save_error)
 
         return outputs, losses
@@ -486,6 +513,30 @@ class Trainer:
 
         self.set_train()
 
+
+#### adding features 
+    def generate_feature_pred(self, inputs, outputs):
+        outputs[("disp",0,0)] = outputs[("disp",0)]
+        disp = outputs[("disp", 0, 0)]
+        disp = F.interpolate(disp, [int(self.opt.height/2), int(self.opt.width/2)], mode="bilinear", align_corners=False)
+        _, depth = disp_to_depth(disp, self.opt.min_depth, self.opt.max_depth)
+        for i, frame_id in enumerate(self.opt.frame_ids[1:]):
+            if frame_id == "s":
+                T = inputs["stereo_T"]
+            else:
+                T = outputs[("cam_T_cam", 0, frame_id)]
+
+            backproject = Backproject(self.opt.batch_size, int(self.opt.height/2), int(self.opt.width/2))
+            project = Project(self.opt.batch_size, int(self.opt.height/2), int(self.opt.width/2))
+
+            cam_points = backproject(depth, inputs[("inv_K",0)])
+            pix_coords = project(cam_points, inputs[("K",0)], T)#[b,h,w,2]
+            img = inputs[("color", frame_id, 0)]
+            src_f = self.models["extractor"](img)[0]
+            outputs[("feature", frame_id, 0)] = F.grid_sample(src_f, pix_coords, padding_mode="border")
+        return outputs
+
+
     def generate_images_pred(self, inputs, outputs):
         """Generate the warped (reprojected) color images for a minibatch.
         Generated images are saved into the `outputs` dictionary.
@@ -539,6 +590,14 @@ class Trainer:
                 if not self.opt.disable_automasking:
                     outputs[("color_identity", frame_id, scale)] = \
                         inputs[("color", frame_id, source_scale)]
+    
+    def robust_11(self,pred, target):
+        eps = 1e-3
+        return torch.sqrt(torch.pow(target - pred, 2) + eps**2)
+
+    def compute_perceptional_loss(self,tgt_f,src_f):
+        perceptional_loss = self.robust_11(tgt_f,src_f).mean(1,True)
+        return perceptional_loss
 
     def compute_reprojection_loss(self, pred, target, save_error=False):
         """Computes reprojection loss between a batch of predicted and target images
@@ -560,11 +619,13 @@ class Trainer:
         """
         losses = {}
         total_loss = 0
+        losses['perceptional_loss'] = 0
 
         for scale in self.opt.scales:
             #scales=[0,1,2,3]
             loss = 0
             reprojection_losses = []
+            perceptional_losses = []
 
             if self.opt.v1_multiscale:
                 source_scale = scale
@@ -572,9 +633,23 @@ class Trainer:
                 source_scale = 0
 
             disp = outputs[("disp", scale)]
+            ##add feature map
             color = inputs[("color", 0, scale)]
             target = inputs[("color", 0, source_scale)]
             
+            #adding feature_loss
+            for frame_id in self.opt.frame_ids[1:]:
+                src_f = outputs[("feature", frame_id, 0)]
+                tgt_f = self.models["extractor"](inputs[("color", 0, 0)])[0]
+                perceptional_losses.append(self.compute_perceptional_loss(tgt_f, src_f))
+            perceptional_loss = torch.cat(perceptional_losses, 1)
+
+            min_perceptional_loss, outputs[("min_index", scale)] = torch.min(perceptional_loss, dim=1)
+            losses[('min_perceptional_loss', scale)] = self.opt.perception_weight * min_perceptional_loss.mean() / len(self.opt.scales)
+       
+            losses['perceptional_loss'] += losses[('min_perceptional_loss',scale)]
+            
+            # photometric_loss
             for frame_id in self.opt.frame_ids[1:]:
                 pred = outputs[("color", frame_id, scale)]
                 reprojection_losses.append(self.compute_reprojection_loss(pred, target,save_error))
@@ -648,6 +723,8 @@ class Trainer:
             losses["loss/{}".format(scale)] = loss
 
         total_loss /= self.num_scales
+        total_loss = (1 - self.opt.perception_weight) * total_loss + self.opt.perception_weight * losses['perceptional_loss']
+        
         #using new architecture
         if self.opt.add_neighboring_frames == 1:
             depth_loss_sum = 0
