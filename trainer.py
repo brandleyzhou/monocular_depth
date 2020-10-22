@@ -31,24 +31,24 @@ from networks.layers import SSIM,Backproject,Project
 from IPython import embed
 
 ##feature extractor building
-def build_extractor(num_layers,pretrained_path):
-    '''maybe using resnet-18 can get better results'''
-    extractor = networks.mono_autoencoder.encoder.Encoder(18, None)
-    checkpoint = torch.load(pretrained_path, map_location = 'cpu')
-    for name, param in extractor.state_dict().items():
-        extractor.load_state_dict(torch.load(pretrained_path))
-    for param in extractor.parameters():
-        param.requires_grad = False
-    return extractor
-
 #def build_extractor(num_layers,pretrained_path):
-#    extractor = networks.mono_autoencoder.encoder.Encoder(50,pretrained_path)
+#    '''maybe using resnet-18 can get better results'''
+#    extractor = networks.mono_autoencoder.encoder.Encoder(18, None)
 #    checkpoint = torch.load(pretrained_path, map_location = 'cpu')
 #    for name, param in extractor.state_dict().items():
-#        extractor.state_dict()[name].copy_(checkpoint['state_dict']['Encoder.'+name])
+#        extractor.load_state_dict(torch.load(pretrained_path))
 #    for param in extractor.parameters():
 #        param.requires_grad = False
 #    return extractor
+
+def build_extractor(num_layers,pretrained_path):
+    extractor = networks.mono_autoencoder.encoder.Encoder(50,pretrained_path)
+    checkpoint = torch.load(pretrained_path, map_location = 'cpu')
+    for name, param in extractor.state_dict().items():
+        extractor.state_dict()[name].copy_(checkpoint['state_dict']['Encoder.'+name])
+    for param in extractor.parameters():
+        param.requires_grad = False
+    return extractor
 
 def get_value_range(img):
     max_min = []

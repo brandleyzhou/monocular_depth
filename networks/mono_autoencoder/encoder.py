@@ -67,18 +67,17 @@ class Encoder(nn.Module):
         if num_layers not in resnets:
             raise ValueError("{} is not a valid number of resnet layers".format(num_layers))
 
-        self.encoder = resnets[num_layers]()
-        if pretrained_path is not None:
-            checkpoint = torch.load(pretrained_path)
-            self.encoder.load_state_dict(checkpoint)
-
-        #self.encoder = resnet_multiimage_input(num_layers, True)
+        if pretrained_path != None:
+            self.encoder = resnets[num_layers]()
+        else:
+            self.encoder = resnet_multiimage_input(num_layers, True)
+        #if training featurenet using pretrained model on Imagenet  
         if num_layers > 34:
             self.num_ch_enc[1:] *= 4
 
-        #for name, param in self.encoder.named_parameters():
-        #   if 'bn' in name:
-        #       param.requires_grad = False
+        for name, param in self.encoder.named_parameters():
+           if 'bn' in name:
+               param.requires_grad = False
 
     def forward(self, input_image):
         self.features = []
