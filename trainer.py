@@ -33,10 +33,8 @@ from IPython import embed
 ##feature extractor building
 #def build_extractor(num_layers,pretrained_path):
 #    '''maybe using resnet-18 can get better results'''
-#    extractor = networks.mono_autoencoder.encoder.Encoder(18, None)
-#    checkpoint = torch.load(pretrained_path, map_location = 'cpu')
-#    for name, param in extractor.state_dict().items():
-#        extractor.load_state_dict(torch.load(pretrained_path))
+#    extractor = networks.mono_autoencoder.encoder.Encoder(18, pretrained_path)
+#    extractor.load_state_dict(torch.load(pretrained_path))
 #    for param in extractor.parameters():
 #        param.requires_grad = False
 #    return extractor
@@ -132,9 +130,13 @@ class Trainer:
             self.opt.frame_ids.append("s")
         
         ## add feature extractor module:
+        #self.models["extractor"] = build_extractor(
+        #        50, self.opt.extractor_pretrained_path).to(self.device)
         self.models["extractor"] = build_extractor(
                 self.opt.num_layers, self.opt.extractor_pretrained_path).to(self.device)
         
+        #self.models["encoder"] = networks.ResnetEncoder(
+        #        50, self.opt.weights_init == "pretrained",plan = self.opt.plan)
         self.models["encoder"] = networks.ResnetEncoder(
             self.opt.num_layers, self.opt.weights_init == "pretrained",plan = self.opt.plan)
         #defualt = 18 choice=[18,34,50,101,152]
@@ -154,7 +156,8 @@ class Trainer:
                 #seperate means pose_encoder using a different ResnetEncoder
                 #shared means pose_encoder using a same ResnetEncoder as depth_encoder
                 self.models["pose_encoder"] = networks.ResnetEncoder(
-                    self.opt.num_layers,
+                    #self.opt.num_layers,
+                    18,
                     self.opt.weights_init == "pretrained",
                     num_input_images=self.num_pose_frames,plan = self.opt.plan)#num_input_images=2
                 #num_input_frames = 2 different from model['encoder']

@@ -46,7 +46,7 @@ val_iter = iter(val_loader)
 
 models={}
 parameters_to_learn=[]
-models["encoder"] = Encoder(18, None).to(device)
+models["encoder"] = Encoder(50, None).to(device)
 parameters_to_learn += list(models["encoder"].parameters())
 models["decoder"] = Decoder(models["encoder"].num_ch_enc).to(device)
 parameters_to_learn += list(models["decoder"].parameters())
@@ -115,7 +115,7 @@ def get_smooth_loss(disp, img):
               torch.mean(disp_dyx.abs() * torch.exp(-img_dyx.abs().mean(1, True))) + \
               torch.mean(disp_dyy.abs() * torch.exp(-img_dyy.abs().mean(1, True)))
 
-    return 1 * smooth1+ 1 * smooth2
+    return 1e-3 * smooth1+ 1e-3 * smooth2
     #return -opt.dis * smooth1+ opt.cvt * smooth2
 
 def gradient(D):
@@ -175,8 +175,8 @@ for epoch in range(opt.num_epochs):
         for scale in opt.scales:
             losses += loss_dict[('min_reconstruct_loss',scale)]
         '''first time we jsut takes scale = 3min_reconstruct_loss into account '''
-        #for i in range(5):
-        #   losses += loss_dict[('smooth_loss',i)]
+        for i in range(5):
+           losses += loss_dict[('smooth_loss',i)]
         
         optimizer.zero_grad()
         losses.backward()

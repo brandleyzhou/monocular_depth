@@ -15,46 +15,50 @@ class ResNetMultiImageInput(models.ResNet):
         #block:  block_type = models.resnet.BasicBlock or Bottleneck
         #layers: blocks = [2,2,2,2] if blocktype == BasicBlock else [3,4,6,3]
         super(ResNetMultiImageInput, self).__init__(block, layers)
+        self.num_ch_enc = [64, 64, 128, 256, 512]
+        self.block = block
+        if self.block == models.resnet.Bottleneck:
+            self.num_ch_enc[1:] *= 4
+            #self.num_ch_enc[0] = 256
         self.plan = plan
         self.plan_choices = {
                     "plan0":[
                         nn.Conv2d(num_input_images * 3,64,kernel_size=1,stride=2,padding=0,bias=False),
                         self._make_layer(block,64,layers[0])],
                     "plan1":[
-                        nn.Conv2d(num_input_images * 3,64,kernel_size=7,stride=2,padding=3,bias=False),
-                        self._make_layer(block,64,layers[0])],
+                        nn.Conv2d(num_input_images * 3,self.num_ch_enc[0],kernel_size=7,stride=2,padding=3,bias=False),
+                        self._make_layer(block,self.num_ch_enc[1],layers[0])],
                     "plan2":[
-                        nn.Conv2d(num_input_images * 3,64,kernel_size=1,stride=2,padding=0,bias=False),
-                        self._make_layer(block,64,layers[0])],
+                        nn.Conv2d(num_input_images * 3,self.num_ch_enc[0],kernel_size=1,stride=2,padding=0,bias=False),
+                        self._make_layer(block,self.num_ch_enc[1],layers[0])],
                     "plan3":[
-                        nn.Conv2d(num_input_images * 3,64,kernel_size=1,stride=2,padding=0,bias=False),
+                        nn.Conv2d(num_input_images * 3,self.num_ch_enc[0],kernel_size=1,stride=2,padding=0,bias=False),
                         nn.Sequential(
                             nn.MaxPool2d(kernel_size=3,stride=1,padding=1),
                             nn.ReLU()
                             )],
                     "plan4":[
-                        nn.Conv2d(num_input_images * 3,64,kernel_size=7,stride=2,padding=3,bias=False),
+                        nn.Conv2d(num_input_images * 3,self.num_ch_enc[0],kernel_size=7,stride=2,padding=3,bias=False),
                         nn.Sequential(
                             nn.MaxPool2d(kernel_size=3,stride=1,padding=1),
                             nn.ReLU()
                         )],
                     "plan5":[
                         nn.Sequential(
-                            nn.Conv2d(num_input_images*3,64,kernel_size=1,stride=1,padding=0,bias=False),
+                            nn.Conv2d(num_input_images*3,self.num_ch_enc[0],kernel_size=1,stride=1,padding=0,bias=False),
                             nn.MaxPool2d(kernel_size=3,stride=2,padding=1)
                             ),
                         self._make_layer(block,64,layers[0])]
                     } 
-        self.inplanes = 64
         self.conv1 = self.plan_choices[self.plan][0]
         #because the output of self.conv1 is a list having an element, so here we use [0] to extract the element
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self.plan_choices[self.plan][1]
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+        self.layer2 = self._make_layer(block, self.num_ch_enc[2], layers[1], stride=2)
+        self.layer3 = self._make_layer(block, self.num_ch_enc[3], layers[2], stride=2)
+        self.layer4 = self._make_layer(block, self.num_ch_enc[4], layers[3], stride=2)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -101,13 +105,13 @@ class ResnetEncoder(nn.Module):
         if num_layers not in resnets:
             raise ValueError("{} is not a valid number of resnet layers".format(num_layers))
 
+        if num_layers > 34:
+            self.num_ch_enc[1:] *= 4
         if num_input_images > 1:
             self.encoder = resnet_multiimage_input(num_layers, True, num_input_images,plan)
         else:
             self.encoder = resnet_multiimage_input(num_layers, True, num_input_images,plan)
-        if num_layers > 34:
-            self.num_ch_enc[1:] *= 4
-
+    
     def forward(self, input_image):
         #print("In model input_size",input_image.size())
         self.features = []
