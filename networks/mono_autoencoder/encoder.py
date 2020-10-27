@@ -68,6 +68,7 @@ class Encoder(nn.Module):
             raise ValueError("{} is not a valid number of resnet layers".format(num_layers))
 
         if pretrained_path != None:
+            print('using pretrained resnet-50 depth encoder')
             self.encoder = resnets[num_layers]()
         else:
             self.encoder = resnet_multiimage_input(num_layers, True)

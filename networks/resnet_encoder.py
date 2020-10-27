@@ -17,9 +17,6 @@ class ResNetMultiImageInput(models.ResNet):
         super(ResNetMultiImageInput, self).__init__(block, layers)
         self.num_ch_enc = [64, 64, 128, 256, 512]
         self.block = block
-        if self.block == models.resnet.Bottleneck:
-            self.num_ch_enc[1:] *= 4
-            #self.num_ch_enc[0] = 256
         self.plan = plan
         self.plan_choices = {
                     "plan0":[

@@ -33,7 +33,7 @@ from IPython import embed
 ##feature extractor building
 #def build_extractor(num_layers,pretrained_path):
 #    '''maybe using resnet-18 can get better results'''
-#    extractor = networks.mono_autoencoder.encoder.Encoder(18, pretrained_path)
+#    extractor = networks.mono_autoencoder.encoder.Encoder(50, pretrained_path)
 #    extractor.load_state_dict(torch.load(pretrained_path))
 #    for param in extractor.parameters():
 #        param.requires_grad = False
@@ -135,10 +135,10 @@ class Trainer:
         self.models["extractor"] = build_extractor(
                 self.opt.num_layers, self.opt.extractor_pretrained_path).to(self.device)
         
+        self.models["encoder"] = networks.mono_autoencoder.encoder.Encoder(
+                50, 'gpfs/home/mxa19ypu/.cache/torch/checkpoints/resnet50-19c8e357')
         #self.models["encoder"] = networks.ResnetEncoder(
-        #        50, self.opt.weights_init == "pretrained",plan = self.opt.plan)
-        self.models["encoder"] = networks.ResnetEncoder(
-            self.opt.num_layers, self.opt.weights_init == "pretrained",plan = self.opt.plan)
+        #    self.opt.num_layers, self.opt.weights_init == "pretrained",plan = self.opt.plan)
         #defualt = 18 choice=[18,34,50,101,152]
         para_sum = sum(p.numel() for p in self.models['encoder'].parameters())
         print(para_sum)
