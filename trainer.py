@@ -40,7 +40,7 @@ from IPython import embed
 #    return extractor
 
 def build_extractor(num_layers,pretrained_path):
-    extractor = networks.mono_autoencoder.encoder.Encoder(50,pretrained_path)
+    extractor = networks.mono_autoencoder.encoder.Encoder(50,None)
     checkpoint = torch.load(pretrained_path, map_location = 'cpu')
     for name, param in extractor.state_dict().items():
         extractor.state_dict()[name].copy_(checkpoint['state_dict']['Encoder.'+name])
@@ -136,7 +136,7 @@ class Trainer:
                 self.opt.num_layers, self.opt.extractor_pretrained_path).to(self.device)
         
         self.models["encoder"] = networks.mono_autoencoder.encoder.Encoder(
-                50, 'gpfs/home/mxa19ypu/.cache/torch/checkpoints/resnet50-19c8e357')
+                50, '/gpfs/home/mxa19ypu/.cache/torch/checkpoints/resnet50-19c8e357.pth')
         #self.models["encoder"] = networks.ResnetEncoder(
         #    self.opt.num_layers, self.opt.weights_init == "pretrained",plan = self.opt.plan)
         #defualt = 18 choice=[18,34,50,101,152]

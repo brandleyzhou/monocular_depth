@@ -167,7 +167,8 @@ def resnet50(pretrained_path=None, **kwargs):
     """
     model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
     if pretrained_path is not None:
-        model.load_state_dict(torch.load(osp.join(pretrained_path, 'resnet50.pth')))
+        #model.load_state_dict(torch.load(osp.join(pretrained_path, 'resnet50.pth')))
+        model.load_state_dict(torch.load(pretrained_path))
         print('Loaded pre-trained weights')
     return model
 
