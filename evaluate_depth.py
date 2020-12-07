@@ -117,7 +117,8 @@ def evaluate(opt):
         plan = opt.load_weights_folder[35:40]
         acti_func = opt.load_weights_folder[41:45]
         using = opt.load_weights_folder[-1]
-        encoder = networks.ResnetEncoder(opt.num_layers, False,plan = plan)
+        #encoder = networks.ResnetEncoder(opt.num_layers, False,plan = plan)
+        encoder = networks.mono_autoencoder.encoder.Encoder(50, False)
         depth_decoder = networks.DepthDecoder(encoder.num_ch_enc,nonlin = acti_func,using_v=using)
 
         model_dict = encoder.state_dict()

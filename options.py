@@ -14,7 +14,7 @@ class MonodepthOptions:
         self.parser.add_argument("--data_path",
                                  type=str,
                                  help="path to the training data",
-                                 default=os.path.join(file_dir, "data_path/raw_kitti"))
+                                 default=os.path.join(file_dir, "data_path/train_val"))
         self.parser.add_argument("--log_dir",
                                  type=str,
                                  help="log directory",
