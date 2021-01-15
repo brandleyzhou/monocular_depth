@@ -1,5 +1,7 @@
 # This is a repo discribing our depth estimation method
- Most code based on [monodepth2](https://github.com/nianticlabs/monodepth2)
+ Most code based on [monodepth2](https://github.com/nianticlabs/monodepth2).
+
+ Our work is accepted by CVMP2020, [Constant Velocity Constraints for Self-Supervised Monocular Depth Estimation](https://dl.acm.org/doi/pdf/10.1145/3429341.3429355)
 # Comparision Results 
 *(all models trained in a self-supervised manner and test on a same metrics and testset)*
 
