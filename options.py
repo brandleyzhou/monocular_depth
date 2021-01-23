@@ -58,7 +58,8 @@ class MonodepthOptions:
                                 )
         self.parser.add_argument("--depth_loss_weight",
                                  type = float,
-                                 default = 0.0001,
+                                 #default = 0.0001,
+                                 default = 1,
                                  help = 'weight of depth loss',
                                 )
         self.parser.add_argument("--mask_plan",
@@ -149,7 +150,7 @@ class MonodepthOptions:
         self.parser.add_argument("--learning_rate",
                                  type=float,
                                  help="learning rate",
-                                 default=1e-4)
+                                 default=1e-3)# for hr_monodepth is -3, monodepth2 is -4
         self.parser.add_argument("--num_epochs",
                                  type=int,
                                  help="number of epochs",

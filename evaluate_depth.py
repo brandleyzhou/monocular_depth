@@ -12,6 +12,7 @@ from utils import readlines
 from options import MonodepthOptions
 import datasets
 import networks
+import hr_networks
 
 cv2.setNumThreads(0)  # This speeds up evaluation 5x on our unix systems (OpenCV 3.3.1)
 
@@ -118,8 +119,10 @@ def evaluate(opt):
         acti_func = opt.load_weights_folder[41:45]
         using = opt.load_weights_folder[-1]
         #encoder = networks.ResnetEncoder(opt.num_layers, False,plan = plan)
-        encoder = networks.mono_autoencoder.encoder.Encoder(50, False)
-        depth_decoder = networks.DepthDecoder(encoder.num_ch_enc,nonlin = acti_func,using_v=using)
+        encoder = hr_networks.ResnetEncoder(opt.num_layers,opt.scales)
+        #encoder = networks.mono_autoencoder.encoder.Encoder(50, False)
+        #depth_decoder = networks.DepthDecoder(encoder.num_ch_enc,nonlin = acti_func,using_v=using)
+        depth_decoder = hr_networks.HRDepthDecoder(encoder.num_ch_enc)
 
         model_dict = encoder.state_dict()
         encoder.load_state_dict({k: v for k, v in encoder_dict.items() if k in model_dict})

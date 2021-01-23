@@ -1,0 +1,16 @@
+11689512
+cuda
+------Using a pretained model-------
+Training model named:
+   mono_model
+Models and tensorboard events files are saved to:
+   /gpfs/home/mxa19ypu/test_monodepth/plan1_sigm_checkpoints_all_v1_flipping
+Training is using:
+   cuda
+Using split:
+   eigen_zhou
+There are 39810 training items and 4424 validation items
+
+Training starts at Mon Jan 18 22:05:39 2021
+
+Training

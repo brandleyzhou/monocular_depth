@@ -27,6 +27,7 @@ from kitti_utils import *
 from layers import *
 import datasets
 import networks
+import hr_networks
 from networks.layers import SSIM,Backproject,Project
 from IPython import embed
 
@@ -132,19 +133,27 @@ class Trainer:
         ## add feature extractor module:
         #self.models["extractor"] = build_extractor(
         #        50, self.opt.extractor_pretrained_path).to(self.device)
-        self.models["extractor"] = build_extractor(
-                self.opt.num_layers, self.opt.extractor_pretrained_path).to(self.device)
+        #self.models["extractor"] = build_extractor(
+        #        self.opt.num_layers, self.opt.extractor_pretrained_path).to(self.device)
         
-        self.models["encoder"] = networks.mono_autoencoder.encoder.Encoder(
-                50, '/gpfs/home/mxa19ypu/.cache/torch/checkpoints/resnet50-19c8e357.pth')
         #self.models["encoder"] = networks.ResnetEncoder(
         #    self.opt.num_layers, self.opt.weights_init == "pretrained",plan = self.opt.plan)
+        
+# using encoder in hr_network
+        self.models["encoder"] = hr_networks.ResnetEncoder(
+            self.opt.num_layers, self.opt.weights_init == "pretrained")
+        
         #defualt = 18 choice=[18,34,50,101,152]
         para_sum = sum(p.numel() for p in self.models['encoder'].parameters())
         print(para_sum)
         self.parameters_to_train += list(self.models["encoder"].parameters())
-        self.models["depth"] = networks.DepthDecoder(
-            self.models["encoder"].num_ch_enc, self.opt.scales,nonlin=self.opt.acti_func,using_v=self.opt.using_v)
+        #self.models["depth"] = networks.DepthDecoder(
+        #    self.models["encoder"].num_ch_enc, self.opt.scales,nonlin=self.opt.acti_func,using_v=self.opt.using_v)
+
+# using decoder in hr_networks
+        self.models["depth"] = hr_networks.HRDepthDecoder(
+            self.models["encoder"].num_ch_enc, self.opt.scales)
+        
         print(self.device)
         self.models["encoder"].to(self.device)
         #summary(self.models["depth"])
@@ -231,7 +240,7 @@ class Trainer:
 
         train_filenames = readlines(fpath.format("train"))
         val_filenames = readlines(fpath.format("val"))
-        val_filenames = val_filenames[:12]
+        val_filenames = val_filenames
         img_ext = '.png' if self.opt.png else '.jpg'
         #change dataset_size
         if self.opt.data_size == "part":
@@ -395,6 +404,14 @@ class Trainer:
             # Otherwise, we only feed the image with frame_id 0 through the depth encoder
             features = self.models["encoder"](inputs["color_aug", 0, 0])
             outputs = self.models["depth"](features)
+
+####adding flipped middle frame###################
+            features_flipped = self.models["encoder"](inputs["color_flipped", 0, 0])
+            outputs_flipped = self.models["depth"](features_flipped)
+            disp_flipped = F.interpolate(outputs_flipped[("disp",0)],[self.opt.height,self.opt.width],mode="bilinear",align_corners=False)
+            _,outputs[("depth_flipped",0)] =disp_to_depth(torch.flip(disp_flipped,[3]),self.opt.min_depth,self.opt.max_depth)
+####################################################################################
+
             # using new architecture
             if self.opt.add_neighboring_frames == 1:
                 self.depth_mask = []
@@ -420,7 +437,7 @@ class Trainer:
 
         self.generate_images_pred(inputs, outputs)
         ## add feature loss
-        self.generate_feature_pred(inputs, outputs)
+        #self.generate_feature_pred(inputs, outputs)
         losses = self.compute_losses(inputs, outputs, save_error = save_error)
 
         return outputs, losses
@@ -535,8 +552,8 @@ class Trainer:
             cam_points = backproject(depth, inputs[("inv_K",0)])
             pix_coords = project(cam_points, inputs[("K",0)], T)#[b,h,w,2]
             img = inputs[("color", frame_id, 0)]
-            src_f = self.models["extractor"](img)[0]
-            outputs[("feature", frame_id, 0)] = F.grid_sample(src_f, pix_coords, padding_mode="border")
+            #src_f = self.models["extractor"](img)[0]
+            #outputs[("feature", frame_id, 0)] = F.grid_sample(src_f, pix_coords, padding_mode="border")
         return outputs
 
 
@@ -624,6 +641,8 @@ class Trainer:
         total_loss = 0
         losses['perceptional_loss'] = 0
 
+#############adding a symmetry loss
+        losses['symmetry_loss'] = torch.abs(outputs[("disp",0)] - outputs[("depth_flipped",0)]).min()
         for scale in self.opt.scales:
             #scales=[0,1,2,3]
             loss = 0
@@ -641,17 +660,17 @@ class Trainer:
             target = inputs[("color", 0, source_scale)]
             
             #adding feature_loss
-            for frame_id in self.opt.frame_ids[1:]:
-                src_f = outputs[("feature", frame_id, 0)]
-                tgt_f = self.models["extractor"](inputs[("color", 0, 0)])[0]
-                perceptional_losses.append(self.compute_perceptional_loss(tgt_f, src_f))
-            perceptional_loss = torch.cat(perceptional_losses, 1)
+            #for frame_id in self.opt.frame_ids[1:]:
+            #    src_f = outputs[("feature", frame_id, 0)]
+            #    tgt_f = self.models["extractor"](inputs[("color", 0, 0)])[0]
+            #    perceptional_losses.append(self.compute_perceptional_loss(tgt_f, src_f))
+            #perceptional_loss = torch.cat(perceptional_losses, 1)
 
-            min_perceptional_loss, outputs[("min_index", scale)] = torch.min(perceptional_loss, dim=1)
-            losses[('min_perceptional_loss', scale)] = self.opt.perception_weight * min_perceptional_loss.mean() / len(self.opt.scales)
+            #min_perceptional_loss, outputs[("min_index", scale)] = torch.min(perceptional_loss, dim=1)
+            #losses[('min_perceptional_loss', scale)] = self.opt.perception_weight * min_perceptional_loss.mean() / len(self.opt.scales)
        
-            losses['perceptional_loss'] += losses[('min_perceptional_loss',scale)]
-            
+            #losses['perceptional_loss'] += losses[('min_perceptional_loss',scale)]
+
             # photometric_loss
             for frame_id in self.opt.frame_ids[1:]:
                 pred = outputs[("color", frame_id, scale)]
@@ -727,7 +746,8 @@ class Trainer:
 
         total_loss /= self.num_scales
         #total_loss = (1 - self.opt.perception_weight) * total_loss + self.opt.perception_weight * losses['perceptional_loss']
-        total_loss = total_loss + self.opt.perception_weight * losses['perceptional_loss']
+        #total_loss = total_loss + self.opt.perception_weight * losses['perceptional_loss']
+        total_loss = total_loss + self.opt.perception_weight * losses['perceptional_loss'] + losses['symmetry_loss']
         
         #using new architecture
         if self.opt.add_neighboring_frames == 1:

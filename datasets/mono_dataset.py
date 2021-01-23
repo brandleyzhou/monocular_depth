@@ -6,6 +6,7 @@ import numpy as np
 import copy
 from PIL import Image  # using pillow-simd for increased speed
 
+import PIL.Image as pil
 import torch
 import torch.utils.data as data
 from torchvision import transforms
@@ -106,7 +107,7 @@ class MonoDataset(data.Dataset):
                 n, im, i = k
                 inputs[(n, im, i)] = self.to_tensor(f)
                 inputs[(n + "_aug", im, i)] = self.to_tensor(color_aug(f))
-
+        inputs[("color_flipped",0,0)] = self.to_tensor(self.resize[0](inputs[("color_flipped",0,-1)]))
     def __len__(self):
         return len(self.filenames)
 
@@ -138,7 +139,9 @@ class MonoDataset(data.Dataset):
         
         do_color_aug = self.is_train and random.random() > 0.5
         do_flip = self.is_train and random.random() > 0.5
-        do_data_augment = self.is_train and random.random() > 0.5
+        ## no flipping augment
+        do_data_augment = False
+        #do_data_augment = self.is_train and random.random() > 0.5
         apply_distortion = self.is_train and self.apply_distortion and random.random() < 0.5
 
         line = self.filenames[index].split()# for instance, self.filename[index] = '2011_09_26/2011_09_26_0022_sync 473 r'
@@ -160,7 +163,9 @@ class MonoDataset(data.Dataset):
                 inputs[("color", i, -1)] = self.get_color(folder, frame_index, other_side, do_flip)
             else: # get the path of color images ,inputs[("color",i,-1)] meaning image at native size from disk
                 inputs[("color", i, -1)] = self.get_color(folder, frame_index + i, side, do_data_augment, self.data_augment, self.apply_distortion)
-
+        
+        # add a single flipped image
+        inputs[("color_flipped",0,-1)] = inputs[("color",0,-1)].transpose(pil.FLIP_LEFT_RIGHT)
 
         # adjusting intrinsics to match each scale in the pyramid
         for scale in range(self.num_scales):
@@ -185,7 +190,7 @@ class MonoDataset(data.Dataset):
         for i in self.frame_idxs:
             del inputs[("color", i, -1)]
             del inputs[("color_aug", i, -1)]
-
+        del inputs[("color_flipped",0,-1)]
         if self.load_depth:
             depth_gt = self.get_depth(folder, frame_index, side, do_flip)
             inputs["depth_gt"] = np.expand_dims(depth_gt, 0)
