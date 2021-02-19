@@ -298,7 +298,26 @@ def compute_depth_errors(gt, pred):
 
     return abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3
 
+class SE_block(nn.Module):
+    def __init__(self, in_channel, reduction = 16 ):
+        super(SE_block, self).__init__()
+        reduction = reduction
+        in_channel = in_channel
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Sequential(
+            nn.Linear(in_channel, in_channel // reduction, bias = False),
+            nn.ReLU(inplace = True),
+            nn.Linear(in_channel // reduction, in_channel, bias = False)
+            )
+        self.sigmoid = nn.Sigmoid()
+        self.relu = nn.ReLU(inplace = True)
 
+    def forward(self, in_feature):
+        b,c,_,_ = in_feature.size()
+        output_weights = self.avg_pool(in_feature).view(b,c)
+        output_weights = self.sigmoid(self.fc(output_weights).view(b,c,1,1))
+        return output_weights.expand_as(in_feature) * in_feature
+        
 class fSEModule(nn.Module):
     def __init__(self, high_feature_channel, low_feature_channels, output_channel=None):
         super(fSEModule, self).__init__()
@@ -311,17 +330,17 @@ class fSEModule(nn.Module):
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
 
         self.fc = nn.Sequential(
-            nn.Linear(channel, channel // reduction, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Linear(channel // reduction, channel, bias=False)
+            nn.Linear(channel, channel // reduction, bias = False),
+            nn.ReLU(inplace = True),
+            nn.Linear(channel // reduction, channel, bias = False)
         )
 
         self.sigmoid = nn.Sigmoid()
-
-        self.conv_se = nn.Conv2d(in_channels=in_channel, out_channels=out_channel, kernel_size=1, stride=1)
-        self.relu = nn.ReLU(inplace=True)
+        self.conv_se = nn.Conv2d(in_channels = in_channel, out_channels = out_channel, kernel_size = 1, stride = 1)
+        self.relu = nn.ReLU(inplace = True)
 
     def forward(self, high_features, low_features):
+
         features = [upsample(high_features)]
         features += low_features
         features = torch.cat(features, 1)

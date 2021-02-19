@@ -14,7 +14,7 @@ class MonodepthOptions:
         self.parser.add_argument("--data_path",
                                  type=str,
                                  help="path to the training data",
-                                 default=os.path.join(file_dir, "data_path/train_val"))
+                                 default=os.path.join(file_dir, "data_path/raw_kitti/train_val_kitti"))
         self.parser.add_argument("--log_dir",
                                  type=str,
                                  help="log directory",
@@ -32,6 +32,14 @@ class MonodepthOptions:
                                 )
         
         # TRAINING options
+        self.parser.add_argument("--flipping_loss",
+                                action = "store_true"
+                                )
+        self.parser.add_argument("--flipping_loss_weight",
+                                type = float,
+                                help = "the weights for flipping loss",
+                                default = 0.0001
+                                )
         self.parser.add_argument("--data_augment",
                                  type = str,
                                  default = 'flipping',
@@ -58,8 +66,7 @@ class MonodepthOptions:
                                 )
         self.parser.add_argument("--depth_loss_weight",
                                  type = float,
-                                 #default = 0.0001,
-                                 default = 1,
+                                 default = 0.0001,
                                  help = 'weight of depth loss',
                                 )
         self.parser.add_argument("--mask_plan",
@@ -150,7 +157,7 @@ class MonodepthOptions:
         self.parser.add_argument("--learning_rate",
                                  type=float,
                                  help="learning rate",
-                                 default=1e-3)# for hr_monodepth is -3, monodepth2 is -4
+                                 default=1e-4)# for hr_network 1e-3, for monodepth 1e-4
         self.parser.add_argument("--num_epochs",
                                  type=int,
                                  help="number of epochs",

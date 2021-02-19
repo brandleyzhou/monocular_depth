@@ -8,6 +8,7 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from torchvision.transforms.functional import hflip
 #from torch.nn import DataParallel as DDP
 #from torchvision.utils import save_image
 #from toch.nn.parallel import DistributedDataParallel as DDP
@@ -19,6 +20,7 @@ except:
     #from torch.utils.tensorboard import SummaryWriter
 import json
 
+#from matplotlib import pyplot as plt
 import PIL.Image as pil
 import matplotlib as mpl
 import matplotlib.cm as cm
@@ -135,15 +137,15 @@ class Trainer:
         #        50, self.opt.extractor_pretrained_path).to(self.device)
         #self.models["extractor"] = build_extractor(
         #        self.opt.num_layers, self.opt.extractor_pretrained_path).to(self.device)
-        
+        #self.opt.learning_rate = 1e-4
         #self.models["encoder"] = networks.ResnetEncoder(
         #    self.opt.num_layers, self.opt.weights_init == "pretrained",plan = self.opt.plan)
         
 # using encoder in hr_network
+        self.opt.learning_rate = 1e-3
         self.models["encoder"] = hr_networks.ResnetEncoder(
             self.opt.num_layers, self.opt.weights_init == "pretrained")
         
-        #defualt = 18 choice=[18,34,50,101,152]
         para_sum = sum(p.numel() for p in self.models['encoder'].parameters())
         print(para_sum)
         self.parameters_to_train += list(self.models["encoder"].parameters())
@@ -157,9 +159,9 @@ class Trainer:
         print(self.device)
         self.models["encoder"].to(self.device)
         #summary(self.models["depth"])
-        self.models["depth"].to(self.device)
         self.parameters_to_train += list(self.models["depth"].parameters())
-
+        self.models["depth"].to(self.device)
+        self.losses_list = []
         if self.use_pose_net:#use_pose_net = True
             if self.opt.pose_model_type == "separate_resnet":#defualt=separate_resnet  choice = ['normal or shared']
                 #seperate means pose_encoder using a different ResnetEncoder
@@ -345,7 +347,6 @@ class Trainer:
         self.every_epoch_start_time = time.time()
         print("Training")
         self.set_train()
-
         for batch_idx, inputs in enumerate(tqdm(self.train_loader)):
             before_op_time = time.time()
 
@@ -376,8 +377,19 @@ class Trainer:
             self.second_of_first_epoch = self.every_epoch_end_time-self.every_epoch_start_time
             the_second_of_arrival = (self.opt.num_epochs - self.epoch_start - 1) * self.second_of_first_epoch + time.time()
             self.the_time_of_arrival = time.ctime(the_second_of_arrival)
-        print("====>training time of this epoch:{} |xxxxx| the Time Of Arrival:{} ".format(sec_to_hm_str(self.every_epoch_end_time-self.every_epoch_start_time),self.the_time_of_arrival))
+            print("====>training time of this epoch:{} |xxxxx| the Time Of Arrival:{} ".format(sec_to_hm_str(self.every_epoch_end_time-self.every_epoch_start_time),self.the_time_of_arrival))
 
+####adding flipped middle frame###################
+    def flipped_loss(self, inputs, outputs):
+        flipped_input = hflip(inputs["color",0,0]) 
+        features_flipped = self.models["encoder"](flipped_input)
+        outputs_flipped = self.models["depth"](features_flipped)
+        disp_flipped = F.interpolate(outputs_flipped[("disp",0)],[self.opt.height,self.opt.width],mode="bilinear",align_corners=False)
+        _,depth_flipped = disp_to_depth(torch.flip(disp_flipped,[3]),self.opt.min_depth,self.opt.max_depth)
+        symmetry_loss = torch.abs(depth_flipped - outputs[("depth",0,0)]).min()
+        return symmetry_loss
+####################################################################################
+    
     def process_batch(self, inputs,save_error = False):
         """Pass a minibatch through the network and generate images and losses
         """
@@ -404,14 +416,6 @@ class Trainer:
             # Otherwise, we only feed the image with frame_id 0 through the depth encoder
             features = self.models["encoder"](inputs["color_aug", 0, 0])
             outputs = self.models["depth"](features)
-
-####adding flipped middle frame###################
-            features_flipped = self.models["encoder"](inputs["color_flipped", 0, 0])
-            outputs_flipped = self.models["depth"](features_flipped)
-            disp_flipped = F.interpolate(outputs_flipped[("disp",0)],[self.opt.height,self.opt.width],mode="bilinear",align_corners=False)
-            _,outputs[("depth_flipped",0)] =disp_to_depth(torch.flip(disp_flipped,[3]),self.opt.min_depth,self.opt.max_depth)
-####################################################################################
-
             # using new architecture
             if self.opt.add_neighboring_frames == 1:
                 self.depth_mask = []
@@ -522,12 +526,23 @@ class Trainer:
         with torch.no_grad():
             if i == 0:
                 outputs, losses = self.process_batch(inputs,save_error = False)
+#                self.losses_list.append(losses["loss"].cpu().data)
                 i += 1
             else:
                 outputs, losses = self.process_batch(inputs,save_error = False)
             if "depth_gt" in inputs:
                 self.compute_depth_losses(inputs, outputs, losses)
 
+##################plot_loss
+        if self.epoch == self.opt.num_epochs - 1:
+            print(len(self.losses_list))
+            fig1, ax1 = plt.subplots(figsize=(11,8))
+            ax1.plot(range(self.epoch_start, self.opt.num_epochs),self.losses_list[::2])
+            ax1.set_title("total_loss vs epochs")
+            ax1.set_xlabel("epochs")
+            ax1.set_ylabel("loss")
+            plt.savefig(self.log_dir + "loss_vs_epochs.png")
+            
             self.log("val", inputs, outputs, losses)
             del inputs, outputs, losses
 
@@ -641,8 +656,7 @@ class Trainer:
         total_loss = 0
         losses['perceptional_loss'] = 0
 
-#############adding a symmetry loss
-        losses['symmetry_loss'] = torch.abs(outputs[("disp",0)] - outputs[("depth_flipped",0)]).min()
+       
         for scale in self.opt.scales:
             #scales=[0,1,2,3]
             loss = 0
@@ -747,7 +761,12 @@ class Trainer:
         total_loss /= self.num_scales
         #total_loss = (1 - self.opt.perception_weight) * total_loss + self.opt.perception_weight * losses['perceptional_loss']
         #total_loss = total_loss + self.opt.perception_weight * losses['perceptional_loss']
-        total_loss = total_loss + self.opt.perception_weight * losses['perceptional_loss'] + losses['symmetry_loss']
+        if self.opt.flipping_loss == True:
+            losses['symmetry_loss'] = self.opt.flipping_loss_weight *self.flipped_loss(inputs, outputs)  
+            total_loss = total_loss + self.opt.perception_weight * losses['perceptional_loss'] + losses['symmetry_loss']
+        else:
+            total_loss = total_loss + self.opt.perception_weight * losses['perceptional_loss']
+
         
         #using new architecture
         if self.opt.add_neighboring_frames == 1:
@@ -845,7 +864,7 @@ class Trainer:
                 total_loss += depth_loss_sum + depth_loss_weights_sum
         losses["loss"] = total_loss
         return losses
-
+#########################################################################
     def compute_depth_losses(self, inputs, outputs, losses):
         """Compute depth metrics, to allow monitoring during training
 

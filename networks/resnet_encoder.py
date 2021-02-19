@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
-
+from hr_layers import *
 import torch
 import torch.nn as nn
 import torchvision.models as models # a subpackage containing different models 
@@ -98,6 +98,11 @@ class ResnetEncoder(nn.Module):
                    50: models.resnet50,
                    101: models.resnet101,
                    152: models.resnet152}
+        self.se_block0 = SE_block(self.num_ch_enc[0])
+        self.se_block1 = SE_block(self.num_ch_enc[1])
+        self.se_block2 = SE_block(self.num_ch_enc[2])
+        self.se_block3 = SE_block(self.num_ch_enc[3])
+        self.se_block4 = SE_block(self.num_ch_enc[4])
 
         if num_layers not in resnets:
             raise ValueError("{} is not a valid number of resnet layers".format(num_layers))
@@ -111,13 +116,23 @@ class ResnetEncoder(nn.Module):
     
     def forward(self, input_image):
         #print("In model input_size",input_image.size())
-        self.features = []
+        features = []
         x = (input_image - 0.45) / 0.225 # normalizetion?
         x = self.encoder.conv1(x)
         x = self.encoder.bn1(x)
-        self.features.append(self.encoder.relu(x))
-        self.features.append(self.encoder.layer1(self.encoder.maxpool(self.features[-1])))
-        self.features.append(self.encoder.layer2(self.features[-1]))
-        self.features.append(self.encoder.layer3(self.features[-1]))
-        self.features.append(self.encoder.layer4(self.features[-1]))
-        return self.features# feature has 5 elements
+        features.append(self.encoder.relu(x))
+        #features.append(self.encoder.layer1(self.encoder.maxpool(features[-1])))
+        #features.append(self.encoder.layer2(features[-1]))
+        #features.append(self.encoder.layer3(features[-1]))
+        #features.append(self.encoder.layer4(features[-1]))
+        features[-1] = self.se_block0(features[-1])
+        features.append(self.encoder.layer1(self.encoder.maxpool(features[-1])))
+        features[-1] = self.se_block1(features[-1])
+        features.append(self.encoder.layer2(features[-1]))
+        features[-1] = self.se_block2(features[-1])
+        features.append(self.encoder.layer3(features[-1]))
+        features[-1] = self.se_block3(features[-1])
+        features.append(self.encoder.layer4(features[-1]))
+        features[-1] = self.se_block4(features[-1])
+        
+        return features# feature has 5 elements

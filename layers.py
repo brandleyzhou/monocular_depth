@@ -243,6 +243,26 @@ class SSIM(nn.Module):
         return torch.clamp((1 - SSIM_n / SSIM_d) / 2, 0, 1)
 
 
+class SE_block(nn.Module):
+    def __init__(self, in_channel, reduction = 16 ):
+        super(SE_block, self).__init__()
+        reduction = reduction
+        in_channel = in_channel
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Sequential(
+            nn.Linear(in_channel, in_channel // reduction, bias = False),
+            nn.ReLU(inplace = True),
+            nn.Linear(in_channel // reduction, in_channel, bias = False)
+            )
+        self.sigmoid = nn.Sigmoid()
+        self.relu = nn.ReLU(inplace = True)
+
+    def forward(self, in_feature):
+        b,c,_,_ = in_feature.size()
+        output_weights = self.avg_pool(in_feature).view(b,c)
+        output_weights = self.sigmoid(self.fc(output_weights).view(b,c,1,1))
+        return output_weights.expand_as(in_feature) * in_feature
+
 def compute_depth_errors(gt, pred):
     """Computation of error metrics between predicted and ground truth depths
     """

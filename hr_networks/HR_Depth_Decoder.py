@@ -87,6 +87,9 @@ class HRDepthDecoder(nn.Module):
         return conv_1(high_features)
 
     def forward(self, input_features):
+        #self.all_position = ["01", "11", "21", "31", "02", "12", "22", "03", "13", "04"]
+        #self.attention_position = ["31", "22", "13", "04"]
+        #self.non_attention_position = ["01", "11", "21", "02", "12", "03"]
         outputs = {}
         features = {}
         for i in range(5):
@@ -99,18 +102,74 @@ class HRDepthDecoder(nn.Module):
             low_features = []
             for i in range(col):
                 low_features.append(features["X_{}{}".format(row, i)])
+                # low_features=["01" feature["X_00"],
+                #               "11" feature["X_10"],
+                #               "21" feature["X_20"],
+                #               "31" feature["X_30"],
+                #               "02" feature["X_00"],feature["X_01"],
+                #               "12" feature["X_10"],feature["X_11"]
+                #               "22" feature["X_20"],feature["X_21"]
+                #               "03" feature["X_00"],feature["X_01"],feature["X_02"]
+                #               "13" feature["X_10"],feature["X_11"],feature["X_12"]
+                #               "04" feature["X_00"],feature["X_01"],feature["X_02"],feature["03"]
 
             # add fSE block to decoder
             if index in self.attention_position:
-                features["X_"+index] = self.convs["X_" + index + "_attention"](
-                    self.convs["X_{}{}_Conv_0".format(row+1, col-1)](features["X_{}{}".format(row+1, col-1)]), low_features)
+                features["X_" + index] = self.convs["X_" + index + "_attention"](
+                    self.convs["X_{}{}_Conv_0".format(row + 1, col - 1)](features["X_{}{}".format(row + 1, col - 1)]), low_features)
+            # feature["X_31"] = self.convs["X_31_attention"](self.convs["X_40"](features["X_40"]))
+            # feature["X_22"] = self.convs["X_22_attention"](self.convs["X_31"](features["X_31"]))
+            # feature["X_13"] = self.convs["X_22_attention"](self.convs["X_22"](features["X_22"]))
+            # feature["X_04"] = self.convs["X_13_attention"](self.convs["X_13"](features["X_13"]))
+            
             elif index in self.non_attention_position:
                 conv = [self.convs["X_{}{}_Conv_0".format(row + 1, col - 1)],
                         self.convs["X_{}{}_Conv_1".format(row + 1, col - 1)]]
                 if col != 1 and not self.mobile_encoder:
                     conv.append(self.convs["X_" + index + "_downsample"])
-                features["X_" + index] = self.nestConv(conv, features["X_{}{}".format(row+1, col-1)], low_features)
-
+                features["X_" + index] = self.nestConv(conv, features["X_{}{}".format(row + 1, col - 1)], low_features)
+            
+            # "01"
+            # conv = [self.convs["X_10_conv_0"],self.convs["X_10_conv_1"]] 
+            # feature["x_01"] = self.nestConv(conv,features["X_10"],low_feature)
+            
+            # "11"
+            # conv = [self.convs["X_20_conv_0"],self.convs["X_20_conv_1"]] 
+            # feature["x_11"] = self.nestConv(conv,features["X_20"]),low_feature)
+            
+            # "21"
+            # conv = [self.convs["X_30_conv_0"],self.convs["X_30_conv_1"]] 
+            # feature["x_21"] = self.nestConv(conv,features["X_30"]),low_feature)
+            
+            # "02"
+            # conv = [self.convs["X_11_conv_0"],self.convs["X_11_conv_1"]] 
+            # conv.append(self.convs["X_02_downsample"]) 
+            # feature["x_02"] = self.nestConv(conv,features["X_11"]),low_faeture)
+            
+            # "12"
+            # conv = [self.convs["X_21_conv_0"],self.convs["X_21_conv_1"]] 
+            # conv.append(self.convs["X_12_downsample"]) 
+            # feature["x_12"] = self.nestConv(conv,features["X_21"]),low_feature)
+            
+            # "03"
+            # conv = [self.convs["X_12_conv_0"],self.convs["X_12_conv_1"]] 
+            # conv.append(self.convs["X_03_downsample"]) 
+            # feature["x_03"] = self.nestConv(conv,features["X_12"]),low_feature)
+        
+        x = features["X_04"]
+        x = self.convs["X_04_Conv_0"](x)
+        x = self.convs["X_04_Conv_1"](upsample(x))
+        #outputs[("disparity", "Scale0")] = self.sigmoid(self.convs["dispConvScale0"](x))
+        #outputs[("disparity", "Scale1")] = self.sigmoid(self.convs["dispConvScale1"](features["X_04"]))
+        #outputs[("disparity", "Scale2")] = self.sigmoid(self.convs["dispConvScale2"](features["X_13"]))
+        #outputs[("disparity", "Scale3")] = self.sigmoid(self.convs["dispConvScale3"](features["X_22"]))
+        # keep same as the monodepth depth decoder outputs##
+        outputs[("disp",0)] = self.sigmoid(self.convs["dispConvScale0"](x))
+        outputs[("disp",1)] = self.sigmoid(self.convs["dispConvScale1"](features["X_04"]))
+        outputs[("disp",2)] = self.sigmoid(self.convs["dispConvScale2"](features["X_13"]))
+        outputs[("disp",3)] = self.sigmoid(self.convs["dispConvScale3"](features["X_22"]))
+        return outputs
+        
         x = features["X_04"]
         x = self.convs["X_04_Conv_0"](x)
         x = self.convs["X_04_Conv_1"](upsample(x))
