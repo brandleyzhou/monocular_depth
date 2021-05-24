@@ -380,14 +380,14 @@ class Trainer:
             print("====>training time of this epoch:{} |xxxxx| the Time Of Arrival:{} ".format(sec_to_hm_str(self.every_epoch_end_time-self.every_epoch_start_time),self.the_time_of_arrival))
 
 ####adding flipped middle frame###################
-    def flipped_loss(self, inputs, outputs):
-        flipped_input = hflip(inputs["color",0,0]) 
-        features_flipped = self.models["encoder"](flipped_input)
-        outputs_flipped = self.models["depth"](features_flipped)
-        disp_flipped = F.interpolate(outputs_flipped[("disp",0)],[self.opt.height,self.opt.width],mode="bilinear",align_corners=False)
-        _,depth_flipped = disp_to_depth(torch.flip(disp_flipped,[3]),self.opt.min_depth,self.opt.max_depth)
-        symmetry_loss = torch.abs(depth_flipped - outputs[("depth",0,0)]).min()
-        return symmetry_loss
+#    def flipped_loss(self, inputs, outputs):
+#        flipped_input = hflip(inputs["color",0,0]) 
+#        features_flipped = self.models["encoder"](flipped_input)
+#        outputs_flipped = self.models["depth"](features_flipped)
+#        disp_flipped = F.interpolate(outputs_flipped[("disp",0)],[self.opt.height,self.opt.width],mode="bilinear",align_corners=False)
+#        _,depth_flipped = disp_to_depth(torch.flip(disp_flipped,[3]),self.opt.min_depth,self.opt.max_depth)
+#        symmetry_loss = torch.abs(depth_flipped - outputs[("depth",0,0)]).min()
+#        return symmetry_loss
 ####################################################################################
     
     def process_batch(self, inputs,save_error = False):
@@ -395,11 +395,13 @@ class Trainer:
         """
         for key, ipt in inputs.items():#inputs.values() has :12x3x196x640.
             inputs[key] = ipt.to(self.device)#put tensor in gpu memory
+        
         if self.opt.distance_constraint_mask:
             all_color_aug = torch.cat([inputs[("color_aug", i, 0)] for i in self.opt.frame_ids],1)
             all_features = self.models["distance_constraint_encoder"](all_color_aug)#stacked frames processing color together
             masks = self.models['distance_constraint_mask'](all_features)
             self.distance_constraint_mask = masks[("distance_constraint_mask",0)]
+        
         if self.opt.pose_model_type == "shared":
             # If we are using a shared encoder for both depth and pose (as advocated
             # in monodepthv1), then all images are fed separately through the depth encoder.
@@ -416,21 +418,21 @@ class Trainer:
             # Otherwise, we only feed the image with frame_id 0 through the depth encoder
             features = self.models["encoder"](inputs["color_aug", 0, 0])
             outputs = self.models["depth"](features)
-            # using new architecture
-            if self.opt.add_neighboring_frames == 1:
-                self.depth_mask = []
-                feature_previous = self.models["encoder"](inputs["color_aug",-1,0])
-                feature_next =  self.models["encoder"](inputs["color_aug",1,0])
-                self.depth_mask.append(generate_depth_mask(inputs[("color_aug",0,0)],inputs[("color_aug",-1,0)],self.opt.threshold))
-                self.depth_mask.append(generate_depth_mask(inputs[("color_aug",0,0)],inputs[("color_aug",1,0)],self.opt.threshold))
-                outputs_previous = self.models["depth"](feature_previous)
-                outputs_next = self.models["depth"](feature_next)
-                for scale in self.opt.scales:    
-                    #generate two sets of  depth maps
-                    disp_previous = F.interpolate(outputs_previous[("disp",scale)],[self.opt.height,self.opt.width],mode="bilinear",align_corners=False)
-                    disp_next = F.interpolate(outputs_next[("disp",scale)],[self.opt.height,self.opt.width],mode="bilinear",align_corners=False)
-                    _,self.neighboring_depth[("depth_previous",scale)] = disp_to_depth(disp_previous,self.opt.min_depth,self.opt.max_depth)
-                    _,self.neighboring_depth[("depth_next",scale)] = disp_to_depth(disp_next,self.opt.min_depth,self.opt.max_depth)
+            #using new architecture
+            #if self.opt.add_neighboring_frames == 1:
+            #    self.depth_mask = []
+            #    feature_previous = self.models["encoder"](inputs["color_aug",-1,0])
+            #    feature_next =  self.models["encoder"](inputs["color_aug",1,0])
+            #    self.depth_mask.append(generate_depth_mask(inputs[("color_aug",0,0)],inputs[("color_aug",-1,0)],self.opt.threshold))
+            #    self.depth_mask.append(generate_depth_mask(inputs[("color_aug",0,0)],inputs[("color_aug",1,0)],self.opt.threshold))
+            #    outputs_previous = self.models["depth"](feature_previous)
+            #    outputs_next = self.models["depth"](feature_next)
+            #    for scale in self.opt.scales:    
+            #        #generate two sets of  depth maps
+            #        disp_previous = F.interpolate(outputs_previous[("disp",scale)],[self.opt.height,self.opt.width],mode="bilinear",align_corners=False)
+            #        disp_next = F.interpolate(outputs_next[("disp",scale)],[self.opt.height,self.opt.width],mode="bilinear",align_corners=False)
+            #        _,self.neighboring_depth[("depth_previous",scale)] = disp_to_depth(disp_previous,self.opt.min_depth,self.opt.max_depth)
+            #        _,self.neighboring_depth[("depth_next",scale)] = disp_to_depth(disp_next,self.opt.min_depth,self.opt.max_depth)
 
         if self.opt.predictive_mask:
             outputs["predictive_mask"] = self.models["predictive_mask"](features)
@@ -453,7 +455,6 @@ class Trainer:
         if self.num_pose_frames == 2:
             # In this setting, we compute the pose to each source frame via a
             # separate forward pass through the pose network.
-
             # select what features the pose network takes as input
             if self.opt.pose_model_type == "shared":
                 pose_feats = {f_i: features[f_i] for f_i in self.opt.frame_ids}
@@ -534,14 +535,14 @@ class Trainer:
                 self.compute_depth_losses(inputs, outputs, losses)
 
 ##################plot_loss
-        if self.epoch == self.opt.num_epochs - 1:
-            print(len(self.losses_list))
-            fig1, ax1 = plt.subplots(figsize=(11,8))
-            ax1.plot(range(self.epoch_start, self.opt.num_epochs),self.losses_list[::2])
-            ax1.set_title("total_loss vs epochs")
-            ax1.set_xlabel("epochs")
-            ax1.set_ylabel("loss")
-            plt.savefig(self.log_dir + "loss_vs_epochs.png")
+#        if self.epoch == self.opt.num_epochs - 1:
+#            print(len(self.losses_list))
+#            fig1, ax1 = plt.subplots(figsize=(11,8))
+#            ax1.plot(range(self.epoch_start, self.opt.num_epochs),self.losses_list[::2])
+#            ax1.set_title("total_loss vs epochs")
+#            ax1.set_xlabel("epochs")
+#            ax1.set_ylabel("loss")
+#            plt.savefig(self.log_dir + "loss_vs_epochs.png")
             
             self.log("val", inputs, outputs, losses)
             del inputs, outputs, losses
@@ -550,26 +551,26 @@ class Trainer:
 
 
 #### adding features 
-    def generate_feature_pred(self, inputs, outputs):
-        outputs[("disp",0,0)] = outputs[("disp",0)]
-        disp = outputs[("disp", 0, 0)]
-        disp = F.interpolate(disp, [int(self.opt.height/2), int(self.opt.width/2)], mode="bilinear", align_corners=False)
-        _, depth = disp_to_depth(disp, self.opt.min_depth, self.opt.max_depth)
-        for i, frame_id in enumerate(self.opt.frame_ids[1:]):
-            if frame_id == "s":
-                T = inputs["stereo_T"]
-            else:
-                T = outputs[("cam_T_cam", 0, frame_id)]
-
-            backproject = Backproject(self.opt.batch_size, int(self.opt.height/2), int(self.opt.width/2))
-            project = Project(self.opt.batch_size, int(self.opt.height/2), int(self.opt.width/2))
-
-            cam_points = backproject(depth, inputs[("inv_K",0)])
-            pix_coords = project(cam_points, inputs[("K",0)], T)#[b,h,w,2]
-            img = inputs[("color", frame_id, 0)]
-            #src_f = self.models["extractor"](img)[0]
-            #outputs[("feature", frame_id, 0)] = F.grid_sample(src_f, pix_coords, padding_mode="border")
-        return outputs
+#    def generate_feature_pred(self, inputs, outputs):
+#        outputs[("disp",0,0)] = outputs[("disp",0)]
+#        disp = outputs[("disp", 0, 0)]
+#        disp = F.interpolate(disp, [int(self.opt.height/2), int(self.opt.width/2)], mode="bilinear", align_corners=False)
+#        _, depth = disp_to_depth(disp, self.opt.min_depth, self.opt.max_depth)
+#        for i, frame_id in enumerate(self.opt.frame_ids[1:]):
+#            if frame_id == "s":
+#                T = inputs["stereo_T"]
+#            else:
+#                T = outputs[("cam_T_cam", 0, frame_id)]
+#
+#            backproject = Backproject(self.opt.batch_size, int(self.opt.height/2), int(self.opt.width/2))
+#            project = Project(self.opt.batch_size, int(self.opt.height/2), int(self.opt.width/2))
+#
+#            cam_points = backproject(depth, inputs[("inv_K",0)])
+#            pix_coords = project(cam_points, inputs[("K",0)], T)#[b,h,w,2]
+#            img = inputs[("color", frame_id, 0)]
+#            #src_f = self.models["extractor"](img)[0]
+#            #outputs[("feature", frame_id, 0)] = F.grid_sample(src_f, pix_coords, padding_mode="border")
+#        return outputs
 
 
     def generate_images_pred(self, inputs, outputs):
@@ -626,13 +627,13 @@ class Trainer:
                     outputs[("color_identity", frame_id, scale)] = \
                         inputs[("color", frame_id, source_scale)]
     
-    def robust_11(self,pred, target):
-        eps = 1e-3
-        return torch.sqrt(torch.pow(target - pred, 2) + eps**2)
-
-    def compute_perceptional_loss(self,tgt_f,src_f):
-        perceptional_loss = self.robust_11(tgt_f,src_f).mean(1,True)
-        return perceptional_loss
+#    def robust_11(self,pred, target):
+#        eps = 1e-3
+#        return torch.sqrt(torch.pow(target - pred, 2) + eps**2)
+#
+#    def compute_perceptional_loss(self,tgt_f,src_f):
+#        perceptional_loss = self.robust_11(tgt_f,src_f).mean(1,True)
+#        return perceptional_loss
 
     def compute_reprojection_loss(self, pred, target, save_error=False):
         """Computes reprojection loss between a batch of predicted and target images
@@ -769,99 +770,99 @@ class Trainer:
 
         
         #using new architecture
-        if self.opt.add_neighboring_frames == 1:
-            depth_loss_sum = 0
-            depth_loss_weights_sum = 0
-            if self.opt.depth_multiscale:
-                for i in self.opt.scales:
-                    #testing before
-                    depth_mid = torch.abs(self.neighboring_depth[("depth_previous",i)] - \
-                        self.neighboring_depth[("depth_next",i)]) / 2 if self.opt.respective_depth_constraint \
-                        else  torch.abs(self.neighboring_depth[("depth_previous",i)] - \
-                        self.neighboring_depth[("depth_next",i)]) / 2 + self.neighboring_depth[("depth_next",i)]
-                    ## L2 loss
-                    #depth_loss = nn.MSELoss()(torch.abs(self.neighboring_depth[("depth_previous",i)] - outputs[("depth",0,i)]), depth_mid) * self.depth_mask[0] + \
-                    #        nn.MSELoss()(torch.abs(self.neighboring_depth[("depth_next",i)] - outputs[("depth",0,i)]), depth_mid)*self.depth_mask[1] if self.opt.respective_depth_constraint \
-                    #        else nn.MSELoss()(depth_mid , outputs[("depth",0,i)])
-                    
-                    depth_loss = torch.abs(torch.abs(self.neighboring_depth[("depth_previous",i)] - outputs[("depth",0,i)]) - depth_mid) * self.depth_mask[0] + \
-                            torch.abs(torch.abs(self.neighboring_depth[("depth_next",i)] - outputs[("depth",0,i)]) - depth_mid)*self.depth_mask[1] if self.opt.respective_depth_constraint \
-                            else torch.abs(depth_mid - outputs[("depth",0,i)])
-                    #depth_loss = torch.abs(torch.abs(self.neighboring_depth[("depth_previous",i)] - outputs[("depth",0,i)]) - depth_mid) + \
-                    #        torch.abs(torch.abs(self.neighboring_depth[("depth_next",i)] - outputs[("depth",0,i)]) - depth_mid) if self.opt.respective_depth_constraint \
-                    #        else torch.abs(depth_mid - outputs[("depth",0,i)])
-                    
-                    if self.opt.distance_constraint_mask:
-                        depth_lossing =  self.opt.depth_loss_weight * (depth_loss * self.distance_constraint_mask).mean()
-                        if not self.opt.disable_BCELoss:#when setting distance mask will doing this 
-                            depth_loss_weights = self.opt.distance_mask_weight* nn.BCELoss()\
-                                    (self.distance_constraint_mask, \
-                                    torch.ones(self.distance_constraint_mask.shape).cuda()) \
-                                    if torch.cuda.is_available() \
-                                    else \
-                                    self.opt.distance_mask_weight * nn.BCELoss()\
-                                    (self.distance_constraint_mask, \
-                                    torch.ones(self.distance_constraint_mask.shape).cpu())
-                            depth_loss_weights_sum += depth_loss_weights
-                            if float(depth_loss_weights)  == 0:
-                                print("distance_mask is useless")
-                    else:
-                        if self.opt.mask_plan == 0:
-                            depth_lossing = (depth_loss * self.opt.depth_loss_weight).mean()
-                        elif self.opt.mask_plan == 1:
-                            depth_lossing =  (depth_loss * self.distance_constraint_automask[0]).mean()
-                        elif self.opt.mask_plan == 2:
-                            depth_lossing = self.opt.depth_loss_weight * (depth_loss * self.distance_constraint_automask[0]).mean()
-                        elif self.opt.mask_plan == 3:
-                            depth_lossing = self.opt.depth_loss_weight * (depth_loss * self.distance_constraint_automask).mean()
-                    depth_loss_sum += depth_lossing
-            else:
-                depth_mid = torch.abs(self.neighboring_depth[("depth_previous",0)] - \
-                        self.neighboring_depth[("depth_next",0)]) / 2 if self.opt.respective_depth_constraint \
-                        else  torch.abs(self.neighboring_depth[("depth_previous",0)] - \
-                        self.neighboring_depth[("depth_next",0)]) / 2 + self.neighboring_depth[("depth_next",0)]
-                for i in self.opt.scales:
-                    ## L2 loss
-                    #depth_loss = nn.MSELoss()(torch.abs(self.neighboring_depth[("depth_previous",0)] - outputs[("depth",0,i)]), depth_mid) * self.depth_mask[0] + \
-                    #        nn.MSELoss()(torch.abs(self.neighboring_depth[("depth_next",0)] - outputs[("depth",0,i)]), depth_mid)*self.depth_mask[1] if self.opt.respective_depth_constraint \
-                    #        else nn.MSELoss()(depth_mid, outputs[("depth",0,i)])
-                    
-                    depth_loss = torch.abs(torch.abs(self.neighboring_depth[("depth_previous",0)] - outputs[("depth",0,i)]) - depth_mid) * self.depth_mask[0] + \
-                            torch.abs(torch.abs(self.neighboring_depth[("depth_next",0)] - outputs[("depth",0,i)]) - depth_mid)*self.depth_mask[1] if self.opt.respective_depth_constraint \
-                            else torch.abs(depth_mid - outputs[("depth",0,i)])
-                    #depth_loss = torch.abs(torch.abs(self.neighboring_depth[("depth_previous",0)] - outputs[("depth",0,i)]) - depth_mid) + \
-                    #        torch.abs(torch.abs(self.neighboring_depth[("depth_next",0)] - outputs[("depth",0,i)]) - depth_mid) if self.opt.respective_depth_constraint\
-                    #        else torch.abs(depth_mid - outputs[("depth",0,i)])
-                    if self.opt.distance_constraint_mask:
-                        depth_lossing =  self.opt.depth_loss_weight * (depth_loss * self.distance_constraint_mask).mean()
-                        if not self.opt.disable_BCELoss:
-                            depth_loss_weights = self.opt.distance_mask_weight* nn.BCELoss()\
-                                    (self.distance_constraint_mask, \
-                                    torch.ones(self.distance_constraint_mask.shape).cuda()) \
-                                    if torch.cuda.is_available() \
-                                    else \
-                                    self.opt.distance_mask_weight * nn.BCELoss()\
-                                    (self.distance_constraint_mask, \
-                                    torch.ones(self.distance_constraint_mask.shape).cpu())
-                            depth_loss_weights_sum += depth_loss_weights
-                    else:
-                        if self.opt.mask_plan == 0:
-                            depth_lossing = (depth_loss * self.opt.depth_loss_weight).mean()
-                        elif self.opt.mask_plan == 1:
-                            depth_lossing =  (depth_loss * self.distance_constraint_automask[0]).mean()
-                        elif self.opt.mask_plan == 2:
-                            depth_lossing = self.opt.depth_loss_weight * (depth_loss * self.distance_constraint_automask[0]).mean()
-                        elif self.opt.mask_plan == 3:
-                            depth_lossing = self.opt.depth_loss_weight * (depth_loss * self.distance_constraint_automask).mean()
-                    depth_loss_sum += depth_lossing
-            depth_loss_sum /= 4
-            if depth_loss_sum == 0:
-                print("depth_loss is useless")
-            depth_loss_weights_sum /= 4
-            if self.opt.combined_loss == True:
-                total_loss = (1-self.opt.depth_loss_weight) * total_loss + depth_loss_sum + depth_loss_weights_sum
-            else:
-                total_loss += depth_loss_sum + depth_loss_weights_sum
+        #if self.opt.add_neighboring_frames == 1:
+        #    depth_loss_sum = 0
+        #    depth_loss_weights_sum = 0
+        #    if self.opt.depth_multiscale:
+        #        for i in self.opt.scales:
+        #            #testing before
+        #            depth_mid = torch.abs(self.neighboring_depth[("depth_previous",i)] - \
+        #                self.neighboring_depth[("depth_next",i)]) / 2 if self.opt.respective_depth_constraint \
+        #                else  torch.abs(self.neighboring_depth[("depth_previous",i)] - \
+        #                self.neighboring_depth[("depth_next",i)]) / 2 + self.neighboring_depth[("depth_next",i)]
+        #            ## L2 loss
+        #            #depth_loss = nn.MSELoss()(torch.abs(self.neighboring_depth[("depth_previous",i)] - outputs[("depth",0,i)]), depth_mid) * self.depth_mask[0] + \
+        #            #        nn.MSELoss()(torch.abs(self.neighboring_depth[("depth_next",i)] - outputs[("depth",0,i)]), depth_mid)*self.depth_mask[1] if self.opt.respective_depth_constraint \
+        #            #        else nn.MSELoss()(depth_mid , outputs[("depth",0,i)])
+        #            
+        #            depth_loss = torch.abs(torch.abs(self.neighboring_depth[("depth_previous",i)] - outputs[("depth",0,i)]) - depth_mid) * self.depth_mask[0] + \
+        #                    torch.abs(torch.abs(self.neighboring_depth[("depth_next",i)] - outputs[("depth",0,i)]) - depth_mid)*self.depth_mask[1] if self.opt.respective_depth_constraint \
+        #                    else torch.abs(depth_mid - outputs[("depth",0,i)])
+        #            #depth_loss = torch.abs(torch.abs(self.neighboring_depth[("depth_previous",i)] - outputs[("depth",0,i)]) - depth_mid) + \
+        #            #        torch.abs(torch.abs(self.neighboring_depth[("depth_next",i)] - outputs[("depth",0,i)]) - depth_mid) if self.opt.respective_depth_constraint \
+        #            #        else torch.abs(depth_mid - outputs[("depth",0,i)])
+        #            
+        #            if self.opt.distance_constraint_mask:
+        #                depth_lossing =  self.opt.depth_loss_weight * (depth_loss * self.distance_constraint_mask).mean()
+        #                if not self.opt.disable_BCELoss:#when setting distance mask will doing this 
+        #                    depth_loss_weights = self.opt.distance_mask_weight* nn.BCELoss()\
+        #                            (self.distance_constraint_mask, \
+        #                            torch.ones(self.distance_constraint_mask.shape).cuda()) \
+        #                            if torch.cuda.is_available() \
+        #                            else \
+        #                            self.opt.distance_mask_weight * nn.BCELoss()\
+        #                            (self.distance_constraint_mask, \
+        #                            torch.ones(self.distance_constraint_mask.shape).cpu())
+        #                    depth_loss_weights_sum += depth_loss_weights
+        #                    if float(depth_loss_weights)  == 0:
+        #                        print("distance_mask is useless")
+        #            else:
+        #                if self.opt.mask_plan == 0:
+        #                    depth_lossing = (depth_loss * self.opt.depth_loss_weight).mean()
+        #                elif self.opt.mask_plan == 1:
+        #                    depth_lossing =  (depth_loss * self.distance_constraint_automask[0]).mean()
+        #                elif self.opt.mask_plan == 2:
+        #                    depth_lossing = self.opt.depth_loss_weight * (depth_loss * self.distance_constraint_automask[0]).mean()
+        #                elif self.opt.mask_plan == 3:
+        #                    depth_lossing = self.opt.depth_loss_weight * (depth_loss * self.distance_constraint_automask).mean()
+        #            depth_loss_sum += depth_lossing
+        #    else:
+        #        depth_mid = torch.abs(self.neighboring_depth[("depth_previous",0)] - \
+        #                self.neighboring_depth[("depth_next",0)]) / 2 if self.opt.respective_depth_constraint \
+        #                else  torch.abs(self.neighboring_depth[("depth_previous",0)] - \
+        #                self.neighboring_depth[("depth_next",0)]) / 2 + self.neighboring_depth[("depth_next",0)]
+        #        for i in self.opt.scales:
+        #            ## L2 loss
+        #            #depth_loss = nn.MSELoss()(torch.abs(self.neighboring_depth[("depth_previous",0)] - outputs[("depth",0,i)]), depth_mid) * self.depth_mask[0] + \
+        #            #        nn.MSELoss()(torch.abs(self.neighboring_depth[("depth_next",0)] - outputs[("depth",0,i)]), depth_mid)*self.depth_mask[1] if self.opt.respective_depth_constraint \
+        #            #        else nn.MSELoss()(depth_mid, outputs[("depth",0,i)])
+        #            
+        #            depth_loss = torch.abs(torch.abs(self.neighboring_depth[("depth_previous",0)] - outputs[("depth",0,i)]) - depth_mid) * self.depth_mask[0] + \
+        #                    torch.abs(torch.abs(self.neighboring_depth[("depth_next",0)] - outputs[("depth",0,i)]) - depth_mid)*self.depth_mask[1] if self.opt.respective_depth_constraint \
+        #                    else torch.abs(depth_mid - outputs[("depth",0,i)])
+        #            #depth_loss = torch.abs(torch.abs(self.neighboring_depth[("depth_previous",0)] - outputs[("depth",0,i)]) - depth_mid) + \
+        #            #        torch.abs(torch.abs(self.neighboring_depth[("depth_next",0)] - outputs[("depth",0,i)]) - depth_mid) if self.opt.respective_depth_constraint\
+        #            #        else torch.abs(depth_mid - outputs[("depth",0,i)])
+        #            if self.opt.distance_constraint_mask:
+        #                depth_lossing =  self.opt.depth_loss_weight * (depth_loss * self.distance_constraint_mask).mean()
+        #                if not self.opt.disable_BCELoss:
+        #                    depth_loss_weights = self.opt.distance_mask_weight* nn.BCELoss()\
+        #                            (self.distance_constraint_mask, \
+        #                            torch.ones(self.distance_constraint_mask.shape).cuda()) \
+        #                            if torch.cuda.is_available() \
+        #                            else \
+        #                            self.opt.distance_mask_weight * nn.BCELoss()\
+        #                            (self.distance_constraint_mask, \
+        #                            torch.ones(self.distance_constraint_mask.shape).cpu())
+        #                    depth_loss_weights_sum += depth_loss_weights
+        #            else:
+        #                if self.opt.mask_plan == 0:
+        #                    depth_lossing = (depth_loss * self.opt.depth_loss_weight).mean()
+        #                elif self.opt.mask_plan == 1:
+        #                    depth_lossing =  (depth_loss * self.distance_constraint_automask[0]).mean()
+        #                elif self.opt.mask_plan == 2:
+        #                    depth_lossing = self.opt.depth_loss_weight * (depth_loss * self.distance_constraint_automask[0]).mean()
+        #                elif self.opt.mask_plan == 3:
+        #                    depth_lossing = self.opt.depth_loss_weight * (depth_loss * self.distance_constraint_automask).mean()
+        #            depth_loss_sum += depth_lossing
+        #    depth_loss_sum /= 4
+        #    if depth_loss_sum == 0:
+        #        print("depth_loss is useless")
+        #    depth_loss_weights_sum /= 4
+        #    if self.opt.combined_loss == True:
+        #        total_loss = (1-self.opt.depth_loss_weight) * total_loss + depth_loss_sum + depth_loss_weights_sum
+        #    else:
+        #        total_loss += depth_loss_sum + depth_loss_weights_sum
         losses["loss"] = total_loss
         return losses
 #########################################################################
